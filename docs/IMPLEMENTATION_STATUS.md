@@ -33,7 +33,8 @@
 | §5 doctor·COM 등록 | `installer/doctor.ps1`, `installer/register_com.ps1` | 작성 / **실기 미검증(PowerShell 미실행)** |
 | §13.4 자동 테스트 | `tests/`, `.github/workflows/ci.yml` | Ubuntu·Windows × Python 3.10·3.13 |
 | §0 배포(exe·서명·mcpb·통합 설치) | — | **미착수(Phase 5)** |
-| §0.6 안내 사이트·Releases | — | **미착수** |
+| §0.6 안내 사이트 | `site/index.html`, `site/build.py`, `.github/workflows/pages.yml` | 구현: 설명서 + 분석 스킬 ZIP(확인값 포함). 설치 프로그램·`.mcpb` 칸은 "준비 중". **최초 1회 Pages 활성화 필요**(§3.5) |
+| §0.6 Releases | — | **미착수**(설치 프로그램과 함께) |
 
 ## 3. 이번 작업에서 확인한 사실
 
@@ -70,6 +71,15 @@
 - `display 변수명`은 첫 관측치 값 출력 [2차 확인: Stata Journal 2006, 6(2)] → guard가 변수 목록을 알면 차단
 - 블록 주석 중첩은 Mata 문서에만 명시 → guard는 비중첩으로 보수적 해석
 - 최소 약어: list `l`, browse `br`, edit `ed`, display `di`, shell `sh`(`!`), xshell `xsh`, save `sa`, tabulate `ta`, outfile `ou`, outsheet `outs` [1차 확인: 공식 help 파일 사본]
+
+### 3.5 설명서 사이트 (2026-10-29)
+- 공개 주소: `https://beaver21c.github.io/stata_connect/`(GitHub Pages 프로젝트 사이트 주소 규칙)
+- 저장소 공개 상태, Pages 미활성(`has_pages: false`), Release 0건 [1차 확인: GitHub API]
+- 배포 방식: main 반영 시 Actions가 `site/build.py` 실행 → Pages 배포. Pages 소스를 "GitHub Actions"로 지정하는 설정은 저장소 관리자가 1회 수행해야 함 [논리적 추론: 워크플로 기본 토큰은 저장소 설정 변경 권한 없음, 실제 동작 미확인]
+- Claude 앱 스킬 업로드 경로 `Customize › Skills › + › + Create skill › Upload a skill`, ZIP에 스킬 폴더 포함, 코드 실행(Settings › Capabilities › "Create and edit files") 필요, Free·Pro·Max·Team·Enterprise 사용 가능 [1차 확인: Claude 도움말 원문]
+- Claude 앱 다운로드 주소 `https://claude.com/download` 접속 확인 [1차 확인]
+- Codex 앱 안내 주소 `https://developers.openai.com/codex/app`: 이 작업 환경에서 접속 차단으로 미확인(설계서 참고자료 기재 주소 사용) [미확인]
+- 스킬 ZIP은 항목 순서·시각을 고정해 같은 내용이면 같은 SHA-256 → 사이트에 확인값 게시
 
 ## 4. 설계서 대비 변경점
 
@@ -157,7 +167,7 @@ stata-agent selftest --client "Claude Code"
 | Phase 2 | Stata 17·18·19.5 각각 doctor·selftest 통과, 만료 라이선스 감지 |
 | Phase 3 | 8개 기법 시나리오(auto·공개 패널자료) 기준값 대조, references 기준값 출처 보강 |
 | Phase 4 | Codex 앱 동일 시나리오 |
-| Phase 5 | 단일 exe 빌드·코드 서명·`.mcpb` 패킹·스킬 ZIP·통합 설치 프로그램·Release 자동화 |
+| Phase 5 | 단일 exe 빌드·코드 서명·`.mcpb` 패킹·통합 설치 프로그램·Release 자동화 → 설명서 사이트 다운로드 칸 "준비 중" 해제 |
 | 미정 | 저장소 라이선스(공개 배포 전 결정 필요) |
 
 ## 9. 참고자료
@@ -174,4 +184,5 @@ stata-agent selftest --client "Claude Code"
 8. Anthropic. (n.d.). *Extend Claude with skills*. https://code.claude.com/docs/en/skills
 9. Model Context Protocol. (n.d.). *MCPB manifest specification*. GitHub. https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md
 10. `about` 출력 형식 예시(공개 저장소 로그): https://github.com/remlapmot/ivonesamplemr/blob/b932d68ce77df394e4422cd01c95e4ee707dfa51/cscripts/install.log
-11. Stata Journal (2006), 6(2) 수록 글(저자·제목 미확인, `display` 변수명 동작 서술): https://journals.sagepub.com/doi/pdf/10.1177/1536867X0600600209
+11. Anthropic. (n.d.). *Use skills in Claude*. Claude Help Center. https://support.claude.com/en/articles/12512180-use-skills-in-claude (직접 열람)
+12. Stata Journal (2006), 6(2) 수록 글(저자·제목 미확인, `display` 변수명 동작 서술): https://journals.sagepub.com/doi/pdf/10.1177/1536867X0600600209
