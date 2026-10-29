@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stata-agent"
+version = "0.1.0"
+description = "Stata 연결 MCP 서버 + 원자료 보호 계층 + 분석 스킬 (stata-gui-mcp 래퍼)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1,<2",
+    # COM GUI 세션 계층. 내부 함수에 의존하므로 버전 고정(backends/com_gui.py REQUIRED_UPSTREAM_VERSION과 일치)
+    "stata-gui-mcp==1.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+stata-agent-mcp = "stata_agent.server:main"
+stata-agent = "stata_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["mcp_server"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

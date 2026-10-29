@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stata 에이전트 설계서</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1d2330; --muted:#5b6474; --line:#d9dee7; --soft:#f4f6f9;
+  --accent:#1f4e8c; --ok:#1d7a46; --warn:#a15c00; --bad:#a11d2f;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171c; --fg:#e4e8ee; --muted:#9aa3b2; --line:#2c323c; --soft:#1c2027;
+    --accent:#7fb0ef; --ok:#6fcf97; --warn:#f2b45c; --bad:#f08a96;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14171c; --fg:#e4e8ee; --muted:#9aa3b2; --line:#2c323c; --soft:#1c2027;
+  --accent:#7fb0ef; --ok:#6fcf97; --warn:#f2b45c; --bad:#f08a96;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Pretendard","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+  line-height:1.65;font-size:15px}
+main{max-width:1040px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:26px;margin:0 0 6px}
+h2{font-size:20px;margin:44px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--line)}
+h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+p,li{margin:6px 0}
+.meta{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+th{background:var(--soft);font-weight:600}
+code,pre{font-family:Consolas,"D2Coding",monospace;font-size:13px}
+pre{background:var(--soft);border:1px solid var(--line);padding:12px;overflow-x:auto;border-radius:6px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);white-space:nowrap}
+.t1{color:var(--ok);border-color:var(--ok)}
+.t2{color:var(--accent);border-color:var(--accent)}
+.t3{color:var(--warn);border-color:var(--warn)}
+.t4{color:var(--bad);border-color:var(--bad)}
+.box{border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:12px 0;background:var(--soft)}
+.toc a{color:var(--accent);text-decoration:none}
+.toc ol{columns:2;column-gap:32px}
+@media (max-width:640px){.toc ol{columns:1} table{font-size:13px} th,td{padding:5px}}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Stata 에이전트 패키지 설계서</h1>
+<p class="meta">작성 2026-10-29 · 대상: Claude Code / Codex 인계용 · 상태: 설계안(미구현) · 기준 PC 시험: StataNow/MP 19.5, Stata 18 SE (Windows)</p>
+
+<div class="box">
+<b>이 문서의 용도</b><br>
+Claude Code 또는 Codex가 이 파일을 읽고 바로 구현에 착수할 수 있도록 목표·원칙·구조·도구 명세·검증 기준을 한 곳에 정리함.
+<br><b>주장 지위 표기</b>:
+<span class="tag t1">1차 확인</span> 공식 문서·실제 시험으로 확인 ·
+<span class="tag t2">검색 확인</span> 2차 자료(제3자 문서) 확인 ·
+<span class="tag t3">논리적 추론</span> 확인된 사실로부터 추론 ·
+<span class="tag t4">미확인</span> 구현 시 검증 필요
+</div>
+
+<nav class="toc">
+<ol start="0">
+<li><a href="#s0">배포 전제: 아무것도 없는 PC + 유료 요금제</a></li>
+<li><a href="#s1">목표와 운영 원칙</a></li>
+<li><a href="#s2">선행 기반(Phase 0): 채팅-Stata 실시간 연동</a></li>
+<li><a href="#s3">확인된 기술 사실</a></li>
+<li><a href="#s4">아키텍처 선택지 비교</a></li>
+<li><a href="#s5">권고 구조</a></li>
+<li><a href="#s6">Stata 버전 무관 탐지·연결</a></li>
+<li><a href="#s7">MCP 도구 명세</a></li>
+<li><a href="#s8">원자료 보호 정책</a></li>
+<li><a href="#s9">에이전트 워크플로(스킬)</a></li>
+<li><a href="#s10">do-file·폴더 규약</a></li>
+<li><a href="#s11">클라이언트 설정(Claude Code·Codex)</a></li>
+<li><a href="#s12">개발 단계와 검수 기준</a></li>
+<li><a href="#s13">작동 점검·자가 진단 체계</a></li>
+<li><a href="#s14">위험요인·미확인 사항</a></li>
+<li><a href="#s15">참고자료</a></li>
+</ol>
+</nav>
+
+<!-- ===================================================== -->
+<h2 id="s0">0. 배포 전제: 아무것도 없는 PC + 월 3만원대 유료 요금제 (최우선 조건)</h2>
+<div class="box">
+<b>전제</b>: 사용자는 MCP·스킬·Python·Node 등 아무것도 설치되어 있지 않음. 보유 자원은 ① 본인 PC에 설치된 Stata(버전 무관) ② Claude Pro 또는 ChatGPT Plus 중 하나(각 월 20달러, 약 3만원)뿐임.<br>
+<b>목표</b>: 개발자가 배포하는 <b>설치 꾸러미 1개</b>를 받아 클릭 몇 번으로 본인 PC 세팅이 끝나고, 곧바로 채팅창에서 Stata 분석을 시작할 수 있어야 함. 명령줄 입력·설정 파일 편집·런타임 설치를 사용자에게 요구하지 않음.
+</div>
+
+<h3>0.1 요금제별로 쓸 수 있는 "채팅창"</h3>
+<div class="wrap">
+<table>
+<tr><th style="width:16%">요금제</th><th>사용할 앱(채팅창)</th><th style="width:26%">로컬 MCP·스킬 지원</th><th style="width:18%">지위</th></tr>
+<tr><td>Claude Pro</td><td><b>Claude 데스크톱 앱</b>(일반 채팅 화면) — 가장 친숙한 화면. Claude Code도 Pro에 포함되어 같은 앱의 Code 탭 또는 터미널에서 사용 가능</td><td>로컬 MCP: 데스크톱 확장(.mcpb) 원클릭 설치 / 스킬: Customize &gt; Skills에서 ZIP 업로드, Claude Code에도 동기화(v2.1.273 이상)</td><td><span class="tag t1">1차 확인</span>(스킬·MCPB 공식 문서) / <span class="tag t2">검색 확인</span>(Pro의 Claude Code 포함)</td></tr>
+<tr><td>ChatGPT Plus</td><td><b>Codex 앱</b>(Windows 지원, ChatGPT 데스크톱 앱에 통합되는 중). ChatGPT 일반 채팅의 로컬 MCP는 원격 터널 경유 등 제약이 있어 비권장</td><td>로컬 MCP: Codex 설정 파일에 서버 등록 / 스킬: Codex 스킬 폴더</td><td><span class="tag t1">1차 확인</span>(Plus에 Codex 포함, OpenAI 문서) / <span class="tag t2">검색 확인</span>(Windows 앱·설정 경로)</td></tr>
+</table>
+</div>
+<p class="meta">Codex의 Windows 설정 파일 위치는 출처 간 상충(<code>%USERPROFILE%\.codex\config.toml</code> vs <code>%APPDATA%\Codex\config.json</code>) <span class="tag t4">미확인</span> → 설치 프로그램이 두 위치를 모두 탐지해 존재하는 쪽에 기록하도록 설계.</p>
+
+<h3>0.2 사용자에게 주는 것(배포물) 선택지</h3>
+<div class="wrap">
+<table>
+<tr><th style="width:15%">구분</th><th>① Claude 전용 2종 파일</th><th>② 통합 설치 프로그램 <b>(권고)</b></th><th>③ 플러그인 마켓플레이스</th></tr>
+<tr><td>배포물</td><td><code>stata-agent.mcpb</code> + <code>stata-analysis.zip</code>(스킬)</td><td><code>StataAgentSetup.exe</code> 1개(내부에 ①의 파일과 Codex용 구성 포함)</td><td>Claude Code·Codex 플러그인 저장소</td></tr>
+<tr><td>사용자 동작</td><td>.mcpb 더블클릭 → 설치 / 스킬 ZIP 업로드 → 채팅에서 "Stata 연결 설정해줘"(관리자 승인 1회)</td><td>exe 실행 → 관리자 승인 1회 → 다음·완료 → 앱 재시작. 스킬 업로드만 Claude 앱에서 1회 수동(자동 업로드 경로 <span class="tag t4">미확인</span>)</td><td>터미널 명령 입력 필요</td></tr>
+<tr><td>Claude Pro</td><td>지원</td><td>지원</td><td>Claude Code 한정</td></tr>
+<tr><td>ChatGPT Plus</td><td><b>미지원</b></td><td>지원(Codex 설정 자동 기록)</td><td>Codex 한정</td></tr>
+<tr><td>추가 런타임</td><td>없음(서버를 실행파일로 동봉 시)</td><td>없음</td><td>Python·Node 필요 가능</td></tr>
+<tr><td>비개발자 적합성</td><td>높음</td><td><b>가장 높음</b></td><td>낮음</td></tr>
+</table>
+</div>
+<p><b>권고: ②</b> <span class="tag t3">논리적 추론</span> — 두 요금제를 한 배포물로 처리하고 COM 등록(관리자 권한)을 설치 과정에 흡수. ①은 ② 안에 포함되어 Claude 사용자가 단독으로도 쓸 수 있게 함.</p>
+
+<h3>0.3 런타임 결정: 사용자 PC에 Python·Node를 깔지 않는 방법</h3>
+<div class="wrap">
+<table>
+<tr><th style="width:20%">방식</th><th>내용</th><th style="width:30%">장단점</th></tr>
+<tr><td>A. 단일 실행파일(권고)</td><td>MCP 서버(Python + pywin32, stata-gui-mcp 기반 포크)를 단일 <code>.exe</code>로 빌드. MCPB는 실행파일형 서버를 담을 수 있음 <span class="tag t2">검색 확인</span>(MCPB 저장소 예시에 Windows 실행파일 포함)</td><td>Claude·Codex가 같은 exe 공유 / 보안 프로그램 오탐 가능성 → <b>코드 서명 필수</b> <span class="tag t3">논리적 추론</span></td></tr>
+<tr><td>B. Node.js 서버 + PowerShell COM 중계</td><td>Claude 데스크톱에 Node 런타임이 내장되어 있음 <span class="tag t1">1차 확인</span>. Node 서버가 상주 PowerShell 프로세스를 띄워 <code>New-Object -ComObject stata.StataOLEApp</code>로 Stata 제어</td><td>Claude 쪽은 런타임 무설치 / Codex 쪽은 Node 필요 여부 <span class="tag t4">미확인</span>, PowerShell 실행 정책 제약 가능</td></tr>
+<tr><td>C. Python 번들(MCPB lib 폴더)</td><td>의존 패키지를 번들에 포함</td><td>사용자 PC에 Python 런타임 자체는 필요 <span class="tag t2">검색 확인</span> → 전제 위배</td></tr>
+</table>
+</div>
+
+<h3>0.4 사용자 PC에서 일어나는 설치 순서 (② 통합 설치 프로그램)</h3>
+<ol>
+<li><b>사전 점검</b>: Stata 설치 탐색·라이선스 유효성(<code>about</code> 배치) → 없으면 중단 안내(§6)</li>
+<li><b>앱 탐지</b>: Claude 데스크톱·Codex 앱 설치 여부 확인 → 없으면 공식 다운로드 링크 안내</li>
+<li><b>관리자 승인 1회(UAC)</b>: 선택된 Stata 실행파일로 <code>/Register</code>(COM 등록)</li>
+<li><b>서버 배치</b>: <code>%LOCALAPPDATA%\StataAgent\stata-agent-mcp.exe</code> 복사</li>
+<li><b>Claude 연결</b>: <code>.mcpb</code> 자동 실행(설치 대화상자) 또는 설정 파일 병합(기존 설정 백업 후)</li>
+<li><b>Codex 연결</b>: Codex 설정 파일에 <code>[mcp_servers.stata]</code> 병합, 스킬 폴더에 SKILL.md 복사</li>
+<li><b>Claude 스킬</b>: 설치 완료 화면에서 <code>stata-analysis.zip</code> 위치를 열어 주고 "Customize &gt; Skills &gt; 업로드" 1회 안내</li>
+<li><b>작업 폴더 생성</b>: <code>문서\StataAgent\예제</code>에 auto 예제 프로젝트(§10 규약) 생성</li>
+<li><b>완료 점검</b>: 앱 재시작 후 채팅에 "Stata 연결 확인" 입력 → <code>stata_status</code> 결과 표시</li>
+</ol>
+<p class="meta">설정 파일 변경 직후 앱 연결이 끊기는 현상을 오늘 실제로 겪었음 <span class="tag t1">1차 확인</span> → 설치 마지막 단계에서 "앱 완전 종료 후 재실행"을 반드시 안내.</p>
+
+<h3>0.5 Phase 0 시험 조건 변경</h3>
+<p>Phase 0(§2) 시험은 개발자 PC가 아니라 <b>깨끗한 Windows PC(또는 가상 PC) + Claude Pro 계정 1개 + ChatGPT Plus 계정 1개</b>로 수행해야 "아무것도 없는 상태" 전제를 검증할 수 있음. 원내 보안 프로그램(AppCheck 등)이 설치된 업무용 PC 1대에서 추가 시험 필요.</p>
+
+<h3>0.6 공개 배포 구조 (결정: 공개 저장소, 설명은 온라인·설치 파일만 다운로드)</h3>
+<div class="wrap">
+<table>
+<tr><th style="width:20%">구성</th><th>내용</th><th style="width:26%">사용자 접점</th></tr>
+<tr><td>공개 저장소</td><td>소스(포크한 MCP 서버·스킬·설치 프로그램 스크립트), 이슈 접수, 변경 이력</td><td>일반 사용자는 볼 필요 없음</td></tr>
+<tr><td>온라인 안내 사이트</td><td>GitHub Pages 정적 사이트: 시작하기(요금제별 3단계), 그림 포함 설치 안내, 자가 점검 방법(§13), 자주 묻는 오류, 원자료 보호 원칙, AI 사용 공개문 예시</td><td><b>설명은 전부 여기서 확인</b></td></tr>
+<tr><td>Releases</td><td><code>StataAgentSetup-버전.exe</code>(통합), <code>stata-agent-버전.mcpb</code>, <code>stata-analysis-버전.zip</code>, SHA-256 체크섬, 변경 요약 3줄</td><td><b>설치 파일만 다운로드</b>(안내 사이트의 "최신 버전 받기" 버튼이 최신 Release로 연결)</td></tr>
+<tr><td>Actions(자동 빌드)</td><td>Windows 빌드 환경에서 exe 빌드·서명·mcpb 패킹·자동 테스트(§13.4) 후 Release 생성</td><td>없음</td></tr>
+</table>
+</div>
+<ul>
+<li>안내 사이트와 설치 프로그램의 버전 표기를 일치시키고, 설치 완료 화면에 "온라인 안내 열기" 버튼 배치</li>
+<li>설치 파일 안에는 설명서 PDF 등을 넣지 않음 → 안내 내용 갱신이 사이트 수정만으로 끝남</li>
+<li>오류 보고(Issues) 양식에 "로그 원문·자료 경로·변수값 첨부 금지, 자가 점검 보고서(§13.2)만 첨부" 명시</li>
+<li>원내 네트워크에서 github.com·github.io 접속 차단 여부 <span class="tag t4">미확인</span> → 차단 시 원내 자료실에 같은 설치 파일 미러링</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="s1">1. 목표와 운영 원칙</h2>
+
+<h3>목표</h3>
+<ul>
+<li>PC에 설치된 Stata 버전·에디션(BE/SE/MP, 17~19 및 StataNow)에 관계없이 작동하는 <b>Stata 연결 MCP + 분석 스킬 패키지</b> 구축</li>
+<li>Claude(유료 요금제, Claude Code)와 GPT(유료 요금제, Codex) 모두에서 동일 패키지로 에이전트형 분석 수행</li>
+<li>연구자는 채팅으로 요청 → AI가 do-file 작성·수정 → <b>Stata가 계산</b> → AI가 로그를 읽어 검증·해석 → 논문형 표·초안 산출</li>
+</ul>
+
+<h3>운영 원칙 (설계 전체에 적용)</h3>
+<table>
+<tr><th style="width:22%">원칙</th><th>내용</th><th style="width:22%">구현 장치</th></tr>
+<tr><td>P1 계산 주체</td><td>모든 통계량은 Stata가 산출. AI는 코드 작성·결과 판독·해석만 담당. AI가 수치를 직접 계산·추정하여 보고하지 않음</td><td>스킬 규칙 + 해석 시 로그·저장결과 인용 의무</td></tr>
+<tr><td>P2 원자료 비전송</td><td>개별 관측치(행 단위 값)는 AI 모델로 전송하지 않음. 요약통계·검정통계량·메타데이터만 전송</td><td>MCP 명령 차단(guard) + 데이터 조회 도구 제거(§8)</td></tr>
+<tr><td>P3 사람 승인</td><td>실행 전 코드를 연구자가 확인·승인</td><td>클라이언트 권한 설정(실행 도구 = 승인 필요)</td></tr>
+<tr><td>P4 가시성</td><td>AI가 연 Stata 창(Results·Do-file Editor)에서 결과를 사람이 직접 확인·이어서 작업</td><td>COM 기반 GUI 세션(§3·§5)</td></tr>
+<tr><td>P5 재현성</td><td>모든 분석은 do-file로 남고, <code>00_master.do</code> 1회 실행으로 전체 결과 재생성</td><td>폴더·do-file 규약(§10)</td></tr>
+<tr><td>P6 투명성</td><td>AI 사용 내역(도구·반복 횟수·산출물 보존) 기록 → 논문 Method 절 공개 지원</td><td>세션 기록 파일 + 공개문 초안 생성</td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 id="s2">2. 선행 기반(Phase 0): 채팅–Stata 실시간 연동</h2>
+<p>패키지·스킬 개발 이전에 아래 4개 동작이 하나의 Stata 창에서 끊김 없이 작동해야 함. 이 단계 통과가 이후 모든 작업의 전제임.</p>
+
+<table>
+<tr><th style="width:6%">#</th><th style="width:30%">요구 동작</th><th>합격 기준</th><th style="width:18%">현재 상태</th></tr>
+<tr><td>F1</td><td>AI가 Stata 창을 열고 자료를 로드, Do-file Editor에 do-file 표시</td><td>창 1개에 Results·Do-file Editor가 열리고 자료 로드 메시지 확인</td><td><span class="tag t1">1차 확인</span> 부분 작동(새 창 방식, §2.1)</td></tr>
+<tr><td>F2</td><td>채팅 요청("상관분석 추가")만으로 do-file 수정·추가 → <b>같은 창</b>에서 즉시 실행</td><td>새 창 생성 없이 동일 세션에서 실행, 이전 메모리(자료·추정결과) 유지</td><td><span class="tag t4">미확인</span> COM 세션 방식으로 해결 예정</td></tr>
+<tr><td>F3</td><td>수정된 do-file 내용이 Do-file Editor 화면에도 반영</td><td>편집기 탭이 최신 내용으로 갱신(중복 탭 미발생)</td><td><span class="tag t4">미확인</span> 외부 수정 시 편집기 자동 재로드 여부 검증 필요</td></tr>
+<tr><td>F4</td><td>실행 결과를 AI가 읽고 채팅창에 검증·해석 제시</td><td>로그 수치와 채팅 해석 수치 일치, 가정 위배 지적·수정안 제시</td><td><span class="tag t1">1차 확인</span> 로그 판독 방식으로 작동</td></tr>
+</table>
+
+<h3>2.1 오늘 시험에서 확인된 사항 (2026-10-29)</h3>
+<table>
+<tr><th style="width:28%">항목</th><th>결과</th></tr>
+<tr><td>배치 실행 → 로그 판독 → 수정 → 재실행</td><td><span class="tag t1">1차 확인</span> desktop-commander(범용 셸 MCP)로 <code>StataMP-64.exe /e do</code> 실행, 로그 판독, 분산분석 등분산 위배 감지 후 수정안(Levene·병합·강건F·Kruskal-Wallis) 재실행 성공</td></tr>
+<tr><td>버전 간 재현성</td><td><span class="tag t1">1차 확인</span> Stata 18 SE와 StataNow 19.5 결과 로그 수치 완전 일치(자료 파일 날짜 표시 1줄 차이만 존재)</td></tr>
+<tr><td>GUI 표시</td><td><span class="tag t1">1차 확인</span> <code>StataMP-64.exe do file.do</code> + do-file 내 <code>doedit</code>로 Do-file Editor·Results 표시. 단 <b>호출마다 새 창</b> 생성</td></tr>
+<tr><td>배치 로그 이름 충돌</td><td><span class="tag t1">1차 확인</span> <code>/e</code> 실행 시 do-file명과 같은 이름의 로그를 Stata가 자동 생성 → 분석 로그(<code>log using</code>)를 덮어씀. 분석 로그는 별도 이름 필수</td></tr>
+<tr><td>라이선스 만료 감지</td><td><span class="tag t1">1차 확인</span> 만료 시 배치 로그에 <code>request ignored because of batch mode</code> 출력 후 중단 → doctor 점검 항목에 포함 필요</td></tr>
+<tr><td>범용 셸 MCP 권한</td><td><span class="tag t3">논리적 추론</span> PC의 모든 명령 실행 가능·승인 단계 없음 → 패키지에서는 Stata 전용 도구로 권한 축소 필요</td></tr>
+<tr><td>클라이언트 설정 변경 영향</td><td><span class="tag t1">1차 확인</span> Claude Desktop 설정 파일 수정 직후 원격 PC 도구 연결 단절 발생(원인은 <span class="tag t3">논리적 추론</span>: MCP 재로드) → 설치 스크립트는 "설정 변경 후 클라이언트 재시작" 안내 필수</td></tr>
+</table>
+
+<h3>2.2 Phase 0 시험 시나리오 (구현 직후 수행)</h3>
+<ol>
+<li>채팅: "auto 자료 열고 기술통계 보여줘" → 창 1개 생성, Do-file Editor에 <code>01_*.do</code> 표시, Results에 결과</li>
+<li>채팅: "가격을 종속변수로 회귀 추가" → 같은 do-file에 섹션 추가, 같은 창에서 해당 블록만 실행, Editor 갱신</li>
+<li>채팅: "이분산 확인하고 필요하면 고쳐줘" → 진단 실행 → 로그 판독 → 강건표준오차 수정안 → 승인 후 실행</li>
+<li>연구자가 같은 창 Command 창에 직접 명령 입력 → 이후 AI 요청이 그 상태를 이어받는지 확인</li>
+<li>채팅: "결과표 Word로" → <code>etable</code>/<code>putdocx</code> 실행 → 파일 생성 확인</li>
+<li><code>00_master.do</code> 단독 실행(배치)으로 전체 재생성·수치 일치 확인</li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 id="s3">3. 확인된 기술 사실</h2>
+<div class="wrap">
+<table>
+<tr><th style="width:26%">사실</th><th>내용</th><th style="width:14%">지위</th></tr>
+<tr><td>Stata Automation(COM)</td><td>Windows 앱이 Stata를 제어하는 공식 통로. ProgID <code>stata.StataOLEApp</code>. 실행파일 <code>/Register</code>(관리자)로 등록</td><td><span class="tag t1">1차 확인</span></td></tr>
+<tr><td>COM 인스턴스 정책</td><td>단일 사용 out-of-process 서버 → 객체 생성 시 <b>새 Stata 인스턴스</b> 기동. 객체 1개를 만들어 계속 사용 권장 → <b>사용자가 먼저 손으로 연 창에는 연결 불가</b>, AI가 연 창은 재사용 가능</td><td><span class="tag t1">1차 확인</span></td></tr>
+<tr><td>COM 실행 메서드</td><td><code>DoCommand</code>(동기, 반환코드, 8,192자 미만, 대화형 창에서 program define 등 일부 불가) / <code>DoCommandAsync</code>(큐 방식, 명령창 입력과 동일) / <code>UtilIsStataFreeEvent</code>(완료 이벤트) / <code>UtilSetStataBreak</code>(중단) / <code>UtilShowStata</code>(표시·숨김·최소화)</td><td><span class="tag t1">1차 확인</span></td></tr>
+<tr><td>COM 결과 조회</td><td><code>StReturnNumeric/String</code>(e(), r(), c()), <code>ScalarNumeric</code>, <code>MacroValue</code>, <code>MatrixData</code> 등 → 로그 외 경로로 수치 검증 가능</td><td><span class="tag t1">1차 확인</span></td></tr>
+<tr><td>COM 데이터 조회(위험)</td><td><code>VariableData</code>, <code>VariablesData</code>, <code>VariablesAllData</code> 등 <b>관측치 값 직접 반환</b> 메서드 존재 → MCP 도구로 노출 금지(§8)</td><td><span class="tag t1">1차 확인</span></td></tr>
+<tr><td>stata-gui-mcp 1.1.0</td><td>COM 기반 MCP. 가시 GUI·세션 유지·실행마다 텍스트 로그 자동 반환. Stata 17/18/19(MP·SE·BE), Windows 10/11, Python 3.10–3.13, MIT 라이선스, Beta, 2026-08-29 배포. Claude Code·Codex·Claude Desktop·Cursor·VS Code 설정 예시 제공</td><td><span class="tag t2">검색 확인</span>(PyPI 문서, 직접 설치 미시험)</td></tr>
+<tr><td>stata-gui-mcp 스키마 도구</td><td><code>stata_get_data_schema</code>가 <code>list in 1/20</code> 표본 행 출력 포함 → P2 위배. 비활성화·수정 필요</td><td><span class="tag t2">검색 확인</span></td></tr>
+<tr><td>stata-mcp(SepineTam) 1.25.2</td><td>CLI/배치 방식. 이 PC에서 <code>doctor</code> 11항목 통과, 명령 차단 규칙 35개 내장. GUI 미표시</td><td><span class="tag t1">1차 확인</span>(점검까지)</td></tr>
+<tr><td>Codex MCP·스킬</td><td>MCP: <code>~/.codex/config.toml</code> 또는 프로젝트 <code>.codex/config.toml</code>의 <code>[mcp_servers.이름]</code>. 스킬: <code>.agents/skills/</code>(프로젝트)·<code>~/.agents/skills/</code>(사용자), 지침 파일 <code>AGENTS.md</code></td><td><span class="tag t2">검색 확인</span></td></tr>
+<tr><td>Claude Code MCP·스킬</td><td>MCP: <code>claude mcp add</code> 또는 <code>.mcp.json</code>. 스킬: <code>.claude/skills/이름/SKILL.md</code>, 지침 파일 <code>CLAUDE.md</code></td><td><span class="tag t2">검색 확인</span>(MCP) / <span class="tag t3">논리적 추론</span>(스킬 경로는 현행 구성 기준)</td></tr>
+<tr><td>Mac 제어</td><td>Stata 13부터 AppleScript <code>DoCommand</code>/<code>DoCommandAsync</code> 지원으로 외부 편집기 연동 사례 존재</td><td><span class="tag t2">검색 확인</span>(제3자 저장소)</td></tr>
+<tr><td>Stata 보고서 명령</td><td><code>putdocx</code>(Word), <code>dyndoc</code>(Markdown→HTML/Word), <code>etable</code>, <code>collect</code> 공식 지원</td><td><span class="tag t1">1차 확인</span></td></tr>
+</table>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="s4">4. 아키텍처 선택지 비교</h2>
+<div class="wrap">
+<table>
+<tr><th style="width:16%">구분</th><th>A. 기존 MCP 그대로 + 스킬만 작성</th><th>B. 기존 MCP 래핑·포크 + 자체 스킬 <b>(권고)</b></th><th>C. 자체 MCP 신규 개발</th></tr>
+<tr><td>구성</td><td>stata-gui-mcp 설치 + SKILL.md</td><td>stata-gui-mcp(COM) 기반 포크 또는 래퍼 MCP + 배치 백엔드 + 원자료 보호 계층 + 스킬 + 설치 도구</td><td>COM·배치·AppleScript 백엔드 직접 구현</td></tr>
+<tr><td>Phase 0 충족</td><td>F1·F2·F4 가능 <span class="tag t3">논리적 추론</span>, F3 미확인</td><td>F1~F4 설계 반영(편집기 갱신 도구 추가)</td><td>F1~F4 설계 반영</td></tr>
+<tr><td>P2 원자료 보호</td><td><b>미충족</b>(스키마 도구 표본 행 출력)</td><td>충족(도구 제거·guard·출력 필터)</td><td>충족</td></tr>
+<tr><td>버전 무관성</td><td>17~19, Windows만</td><td>Windows 17~19(COM) + 배치 대체 경로(15~16 등) <span class="tag t3">논리적 추론</span></td><td>최대(단, 개발량 비례)</td></tr>
+<tr><td>개발량</td><td>최소</td><td>중간</td><td>최대</td></tr>
+<tr><td>유지보수 위험</td><td>외부 개인 프로젝트 의존(Beta)</td><td>포크 시 상류 변경 추적 필요</td><td>자체 부담</td></tr>
+<tr><td>원내 배포 적합성</td><td>낮음(보호 장치 부재)</td><td>높음</td><td>높음</td></tr>
+</table>
+</div>
+<p><b>권고: B</b> <span class="tag t3">논리적 추론</span> — COM GUI 세션이라는 핵심 난제는 검증된 오픈소스(MIT)를 활용하고, 원자료 보호·편집기 동기화·버전 탐지·스킬은 자체 계층으로 보완. A안은 Phase 0 시험용으로만 사용.</p>
+
+<!-- ===================================================== -->
+<h2 id="s5">5. 권고 구조 (B안)</h2>
+<pre>
+stata-agent-kit/                     ← 패키지 루트(가칭)
+├── mcp_server/
+│   ├── server.py                    ← MCP 진입점(stdio)
+│   ├── backends/
+│   │   ├── com_gui.py               ← Windows COM: 가시 GUI 세션(기본)
+│   │   ├── batch_cli.py             ← 배치(/e): COM 미등록·검증 재실행용
+│   │   └── applescript_mac.py       ← macOS(후순위, 미검증)
+│   ├── guard/
+│   │   ├── command_policy.py        ← 명령 허용·차단 규칙(§8)
+│   │   └── output_filter.py         ← 로그 반환 전 행 단위 출력 탐지·차단
+│   ├── discovery.py                 ← Stata 설치·에디션·라이선스 탐지(§6)
+│   ├── editor_sync.py               ← Do-file Editor 갱신(F3)
+│   └── session_log.py               ← AI 사용 기록(P6)
+├── skills/
+│   └── stata-analysis/
+│       ├── SKILL.md                 ← Claude Code·Codex 공용 지침
+│       ├── references/              ← 기법별 절차·보고 양식(t검정~패널·SEM)
+│       └── templates/               ← do-file 골격, master.do, 보고 표 양식
+├── installer/
+│   ├── doctor.ps1                   ← 사전 점검(Stata·라이선스·COM·Python)
+│   ├── register_com.ps1             ← 관리자 권한 COM 등록
+│   └── configure_clients.py         ← Claude Code·Codex 설정 자동 병합(백업 후)
+└── docs/ (사용자 안내·특강 시연 시나리오)
+</pre>
+
+<h3>백엔드 선택 규칙</h3>
+<table>
+<tr><th style="width:30%">상황</th><th>백엔드</th></tr>
+<tr><td>Windows + COM 등록됨</td><td><code>com_gui</code>(대화형 분석·시연)</td></tr>
+<tr><td>Windows + COM 미등록(관리자 권한 없음)</td><td><code>batch_cli</code> + 결과 확인용 GUI 별도 실행(새 창 방식) — 기능 축소 안내</td></tr>
+<tr><td>최종 재현 검증</td><td>항상 <code>batch_cli</code>로 <code>00_master.do</code> 별도 실행 → 대화형 세션 상태 의존성 제거</td></tr>
+<tr><td>macOS</td><td><code>applescript_mac</code> <span class="tag t4">미확인</span>, 미구현 시 <code>batch_cli</code></td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 id="s6">6. Stata 버전 무관 탐지·연결</h2>
+<ol>
+<li><b>설치 탐색</b>: <code>C:\Stata*</code>, <code>C:\StataNow*</code>, <code>C:\Program Files\Stata*</code>, <code>C:\Program Files (x86)\Stata*</code>, 레지스트리 COM 등록 경로 → <code>Stata(MP|SE|BE|IC)?-64.exe</code> 목록화 <span class="tag t1">1차 확인</span>(이 PC: <code>C:\StataNow19</code>, <code>C:\Stata18</code>, <code>C:\Stata17</code> 존재)</li>
+<li><b>라이선스 확인</b>: 각 실행파일로 <code>about</code> 배치 실행 → 버전·에디션·만료일·등록자 파싱. 만료 시 제외 <span class="tag t1">1차 확인</span>(배치 <code>about</code>로 만료일 확인 성공)</li>
+<li><b>우선순위</b>: 사용자 지정 &gt; 유효 라이선스 최신 버전 &gt; MP &gt; SE &gt; BE</li>
+<li><b>COM 등록 대상 고정</b>: 선택된 실행파일로 <code>/Register</code>. ProgID가 하나이므로 마지막 등록본이 기본이 됨 <span class="tag t3">논리적 추론</span> → doctor가 현재 등록 경로를 표시</li>
+<li><b>do-file 버전 선언</b>: 선택 버전으로 <code>version NN</code> 자동 기입(19.5 StataNow는 <code>version 19.5</code> 또는 <code>19</code>)</li>
+<li><b>라이선스 등록자 표시</b>: doctor 결과에 등록자 노출 → 기관 라이선스 여부 사용자 확인(오늘 시험에서 타 기관 등록 설치본 발견)</li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 id="s7">7. MCP 도구 명세</h2>
+<div class="wrap">
+<table>
+<tr><th style="width:22%">도구</th><th>기능</th><th style="width:15%">권한 등급</th><th style="width:16%">비고</th></tr>
+<tr><td><code>stata_status</code></td><td>백엔드·세션·Stata 버전·라이선스·COM 등록 상태</td><td>자동 허용</td><td>읽기 전용</td></tr>
+<tr><td><code>stata_selftest</code></td><td>T1~T10 자가 점검 실행 → 결과표·점검 보고서 생성(§13)</td><td>자동 허용</td><td>auto.dta만 사용</td></tr>
+<tr><td><code>stata_open_session</code></td><td>COM으로 가시 Stata 창 1개 기동(세션 ID 부여), 작업 폴더 설정</td><td>승인 필요</td><td>F1</td></tr>
+<tr><td><code>stata_load_data</code></td><td><code>use 경로</code> 실행 후 <code>describe, short</code> 결과만 반환</td><td>승인 필요</td><td>행 출력 금지</td></tr>
+<tr><td><code>stata_schema</code></td><td>변수명·유형·라벨·값라벨명·결측 비율·관측치 수만 반환(COM 메타데이터 메서드 활용)</td><td>자동 허용</td><td><b>표본 행·값 예시 미포함</b></td></tr>
+<tr><td><code>stata_write_dofile</code></td><td>do-file 신규 작성(규약 헤더 자동 삽입)</td><td>승인 필요</td><td>§10</td></tr>
+<tr><td><code>stata_patch_dofile</code></td><td>섹션 표지(<code>*== [S03] ... ==*</code>) 단위 추가·교체·삭제, 변경 전 백업</td><td>승인 필요</td><td>F2</td></tr>
+<tr><td><code>stata_show_in_editor</code></td><td>Do-file Editor에 파일 열기·갱신</td><td>자동 허용</td><td>F3, 갱신 방식 <span class="tag t4">미확인</span></td></tr>
+<tr><td><code>stata_run_section</code></td><td>지정 섹션만 현재 세션에서 실행(임시 do-file 경유), 로그 반환</td><td>승인 필요</td><td>F2</td></tr>
+<tr><td><code>stata_run_dofile</code></td><td>do-file 전체 실행, 로그 반환</td><td>승인 필요</td><td></td></tr>
+<tr><td><code>stata_read_log</code></td><td>최근 로그 반환(명령·결과 분리 JSON 선택), 출력 필터 통과분만</td><td>자동 허용</td><td>F4</td></tr>
+<tr><td><code>stata_get_results</code></td><td>e()/r() 스칼라·행렬 조회 → 해석 수치 대조용</td><td>자동 허용</td><td>COM 결과 메서드</td></tr>
+<tr><td><code>stata_export</code></td><td><code>etable</code>/<code>collect</code>/<code>putdocx</code> 기반 Word·Excel 표 산출</td><td>승인 필요</td><td></td></tr>
+<tr><td><code>stata_reproduce</code></td><td>배치로 <code>00_master.do</code> 재실행 → 대화형 결과와 수치 비교 보고</td><td>승인 필요</td><td>P5</td></tr>
+<tr><td><code>stata_break</code></td><td>장시간 실행 중단(<code>UtilSetStataBreak</code>)</td><td>자동 허용</td><td></td></tr>
+<tr><td><code>stata_install_package</code></td><td><code>ssc install</code> 등</td><td>승인 필요</td><td>네트워크 사용</td></tr>
+</table>
+</div>
+<p><b>노출 금지</b>: COM의 <code>VariableData</code>·<code>VariablesData</code>·<code>VariablesAllData</code>·<code>VarDataBigObs</code> 계열 등 관측치 값 반환 메서드 전부 <span class="tag t1">1차 확인</span>(해당 메서드 존재).</p>
+
+<!-- ===================================================== -->
+<h2 id="s8">8. 원자료 보호 정책</h2>
+<h3>8.1 명령 차단(guard) — 실행 전 정적 검사</h3>
+<table>
+<tr><th style="width:26%">범주</th><th>대상</th><th style="width:16%">처리</th></tr>
+<tr><td>행 단위 출력</td><td><code>list</code>, <code>browse</code>, <code>edit</code>, <code>display var[i]</code>, <code>di `=var[1]'</code>, Mata <code>st_data()</code> 출력</td><td>차단</td></tr>
+<tr><td>외부 반출</td><td><code>export delimited/excel</code>, <code>outsheet</code>, <code>save</code> 경로가 프로젝트 외부</td><td>차단 또는 승인</td></tr>
+<tr><td>고유값 노출 위험</td><td>식별자 성격 변수(고유값 비율 &gt; 90%) 대상 <code>tab</code>·<code>levelsof</code>·<code>codebook</code></td><td>경고 후 승인</td></tr>
+<tr><td>파괴적 명령</td><td><code>erase</code>, <code>rm</code>, <code>shell</code>/<code>!</code>, <code>winexec</code></td><td>차단</td></tr>
+<tr><td>로그 간섭</td><td><code>log close _all</code>(MCP 로그 종료 위험)</td><td>차단·치환</td></tr>
+</table>
+<h3>8.2 출력 필터 — 로그 반환 직전</h3>
+<ul>
+<li>표 형식 감지 후 행 수가 관측치 수에 근접하는 출력 차단 <span class="tag t3">논리적 추론</span></li>
+<li>교차표 소표본 셀(n&lt;5, 기준값 설정 가능) 마스킹 선택 옵션</li>
+<li>차단 시 AI에게 "차단됨 + 사유"만 반환, 원 로그는 PC에만 보존</li>
+</ul>
+<h3>8.3 한계 명시</h3>
+<p>guard는 사고 방지 장치이며 완전한 보안 경계가 아님 <span class="tag t2">검색 확인</span>(stata-gui-mcp 문서도 동일 명시). 행정·민감자료는 반출 기준에 따른 별도 승인 절차 병행.</p>
+
+<!-- ===================================================== -->
+<h2 id="s9">9. 에이전트 워크플로 (스킬 SKILL.md 골자)</h2>
+<table>
+<tr><th style="width:5%">#</th><th style="width:20%">단계</th><th>AI 행동</th><th style="width:22%">산출물</th></tr>
+<tr><td>1</td><td>요청 해석</td><td>분석 목적·종속/독립변수·표본 확인. 결론을 가르는 변수 1~2개 질문</td><td>분석 계획(채팅)</td></tr>
+<tr><td>2</td><td>자료 구조 파악</td><td><code>stata_schema</code>만 사용(행 미열람)</td><td>변수 요약</td></tr>
+<tr><td>3</td><td>do-file 작성</td><td>규약 섹션 단위 작성 → Editor 표시</td><td><code>NN_*.do</code></td></tr>
+<tr><td>4</td><td>승인·실행</td><td>섹션 실행 요청 → 연구자 승인 → Stata 실행</td><td>로그</td></tr>
+<tr><td>5</td><td>검증</td><td>기법별 체크리스트 점검(아래) → 위배 시 원인·대안 제시</td><td>검증 메모</td></tr>
+<tr><td>6</td><td>수정·재실행</td><td>대안 섹션 추가(원 결과 삭제 금지) → 비교</td><td>수정 do-file·로그</td></tr>
+<tr><td>7</td><td>해석</td><td><b>모든 수치는 로그 또는 <code>stata_get_results</code>에서 인용</b>, 출처 섹션 표기</td><td>채팅 해석</td></tr>
+<tr><td>8</td><td>산출</td><td>논문형 표(Word)·연구방법/연구결과 초안</td><td><code>.docx</code>·초안</td></tr>
+<tr><td>9</td><td>재현 확인</td><td><code>stata_reproduce</code> 배치 재실행·수치 대조</td><td>재현 보고</td></tr>
+<tr><td>10</td><td>공개문</td><td>AI 사용 내역(도구·반복 횟수) Method 절 공개문 초안</td><td>공개문</td></tr>
+</table>
+
+<h3>기법별 검증 체크리스트 (references/ 폴더로 분리)</h3>
+<table>
+<tr><th style="width:22%">기법</th><th>필수 점검</th><th style="width:30%">대표 Stata 명령</th></tr>
+<tr><td>기술통계</td><td>결측·이상치·단위</td><td><code>summarize</code>, <code>tabstat</code>, <code>misstable</code></td></tr>
+<tr><td>t검정</td><td>정규성·등분산 → Welch 병행</td><td><code>ttest</code>, <code>sdtest</code>, <code>swilk</code></td></tr>
+<tr><td>F검정(ANOVA)</td><td>등분산(Bartlett·Levene)·소표본 집단 → 강건F·비모수</td><td><code>oneway</code>, <code>robvar</code>, <code>kwallis</code></td></tr>
+<tr><td>상관</td><td>쌍별/목록별 N 차이, 다중공선성 후보</td><td><code>pwcorr, sig obs</code>, <code>correlate</code></td></tr>
+<tr><td>다중회귀</td><td>VIF·이분산·영향점·모형 설정</td><td><code>regress</code>, <code>estat vif/hettest</code>, <code>vce(robust)</code></td></tr>
+<tr><td>경로분석·SEM</td><td>식별·적합도(χ², CFI, TLI, RMSEA, SRMR)·간접효과 부트스트랩</td><td><code>sem</code>, <code>estat gof</code>, <code>estat teffects</code></td></tr>
+<tr><td>패널</td><td>패널 구조·FE/RE(Hausman)·군집표준오차·자기상관</td><td><code>xtset</code>, <code>xtreg</code>, <code>hausman</code>, <code>xtserial</code>(SSC)</td></tr>
+<tr><td>비선형</td><td>연결함수·한계효과·적합도</td><td><code>logit/probit</code>, <code>margins</code>, <code>poisson/nbreg</code></td></tr>
+</table>
+<p class="meta">명령 목록은 Stata 표준 명령 기준 정리이며, 기법별 세부 절차·판정 기준은 구현 시 Stata 매뉴얼 원문으로 재확인 <span class="tag t4">미확인</span>.</p>
+
+<h3>채팅 상호작용 예시</h3>
+<pre>
+연구자: 회귀에 headroom 추가하고 결과 비교해줘
+AI   : [stata_patch_dofile] S06 회귀 섹션에 모형 m2 추가 (변경분 제시)
+       → 승인 요청
+연구자: 승인
+AI   : [stata_run_section S06] → [stata_read_log]
+       → m1 vs m2 비교: R² 0.xxx → 0.xxx (로그 S06 인용), headroom 계수 p=…
+       → VIF 재점검 필요: weight–length r=.95 (04 상관 결과 인용)
+</pre>
+
+<!-- ===================================================== -->
+<h2 id="s10">10. do-file·폴더 규약</h2>
+<pre>
+프로젝트/
+├── 00_master.do          ← 전체 재현 진입점(배치 실행 기준)
+├── 01_describe.do        ← 기술통계
+├── 02_compare.do         ← t·F검정
+├── 03_corr.do            ← 상관
+├── 04_regress.do         ← 회귀·진단
+├── ...
+├── data/                 ← 원자료(읽기 전용, AI 미열람)
+├── output/logs/          ← NN_result.log  (do-file명과 다른 이름: 배치 충돌 방지)
+├── output/tables/        ← .docx/.xlsx
+├── .stata-agent/         ← 세션 기록·백업·AI 사용 기록
+└── AGENTS.md / CLAUDE.md ← 프로젝트 지침(공통 내용 동기화)
+</pre>
+<h3>do-file 헤더·섹션 규약</h3>
+<pre>
+* ============================================================
+* 04_regress.do | 작성: AI(모델명) / 승인: 연구자 / 계산: Stata
+* 생성일·수정 이력: .stata-agent/history.jsonl 참조
+* ============================================================
+version 19
+set more off
+capture log close _nmlog
+log using "output/logs/04_result.log", text replace name(_nmlog)
+
+*== [S01] 표본 정의 ==*
+...
+*== [S02] 기본 모형 ==*
+...
+log close _nmlog
+</pre>
+<ul>
+<li>섹션 표지는 <code>stata_patch_dofile</code>·<code>stata_run_section</code>의 기준 단위</li>
+<li>로그는 이름 지정 로그(<code>name()</code>) 사용 → MCP 로그와 충돌 방지</li>
+<li>원 결과 섹션은 삭제하지 않고 수정 섹션 추가(분석 이력 보존)</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="s11">11. 클라이언트 설정 (Claude Code · Codex)</h2>
+<p class="meta">아래 명령은 <b>개발·시험용</b>임. 최종 사용자는 명령을 입력하지 않으며, §0의 설치 프로그램이 같은 내용을 자동 기록함.</p>
+<h3>Claude Code</h3>
+<pre>
+claude mcp add --transport stdio --scope user stata -- stata-agent-mcp
+# 스킬: .claude/skills/stata-analysis/SKILL.md (또는 사용자 범위)
+# 권한: 실행·쓰기 도구는 ask, 읽기 도구(status·schema·read_log·get_results)는 allow
+</pre>
+<h3>Codex</h3>
+<pre>
+codex mcp add stata -- stata-agent-mcp
+# 또는 ~/.codex/config.toml
+[mcp_servers.stata]
+command = "stata-agent-mcp"
+args = []
+# 스킬: .agents/skills/stata-analysis/SKILL.md
+</pre>
+<p class="meta">명령·경로는 stata-gui-mcp 문서와 제3자 정리 자료 기준 <span class="tag t2">검색 확인</span>. Codex의 도구별 승인 정책 설정 방식은 <span class="tag t4">미확인</span> → 구현 시 공식 문서 확인.</p>
+<h3>스킬 공용화</h3>
+<ul>
+<li>SKILL.md 본문은 단일 원본 유지, 설치 스크립트가 두 경로(<code>.claude/skills</code>·<code>.agents/skills</code>)에 복사</li>
+<li>클라이언트별 차이(도구 접두어 <code>mcp__stata__</code> 등)는 SKILL.md 내 분기 문단으로 처리</li>
+<li><code>configure_clients.py</code>는 기존 설정 백업 후 병합(덮어쓰기 금지), 완료 후 "클라이언트 재시작" 안내</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="s12">12. 개발 단계와 검수 기준</h2>
+<table>
+<tr><th style="width:12%">단계</th><th>작업</th><th style="width:34%">검수 기준</th></tr>
+<tr><td>Phase 0</td><td>stata-gui-mcp 원본 설치·COM 등록·§2.2 시나리오 수행(Claude Code)</td><td>F1·F2·F4 통과, F3 갱신 방식 확정</td></tr>
+<tr><td>Phase 1</td><td>포크/래퍼 MCP: guard·출력필터·스키마 도구 교체·섹션 도구·편집기 동기화</td><td>§8 차단 명령 전수 테스트 통과, 행 출력 0건</td></tr>
+<tr><td>Phase 2</td><td>discovery·doctor·COM 등록·배치 백엔드</td><td>Stata 17·18·19.5 각각에서 doctor 통과, 만료 라이선스 감지</td></tr>
+<tr><td>Phase 3</td><td>SKILL.md + 기법별 references·templates</td><td>auto·공개 패널자료로 8개 기법 시나리오 통과, 해석 수치 = 로그 수치</td></tr>
+<tr><td>Phase 4</td><td>Codex 이식·설정 자동화</td><td>Codex에서 동일 시나리오 통과</td></tr>
+<tr><td>Phase 5</td><td>배포물 빌드: 단일 exe 서버·코드 서명·<code>.mcpb</code>·스킬 ZIP·통합 설치 프로그램(§0)</td><td>깨끗한 PC에서 설치 프로그램만으로 Claude Pro·ChatGPT Plus 각각 첫 분석 성공, 사용자 명령줄 입력 0회</td></tr>
+<tr><td>Phase 6</td><td>특강 시연 패키지·사용자 안내서(그림 포함 1장 요약)</td><td>신규 PC 설치~첫 분석 30분 이내 <span class="tag t3">목표치</span>, 원내 업무용 PC(보안 프로그램 설치)에서도 통과</td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 id="s13">13. 작동 점검·자가 진단 체계</h2>
+<p>점검은 세 층으로 나눔: ① 사용자가 채팅 한 줄로 실행하는 <b>자가 점검</b>, ② 문제 발생 시 공유하는 <b>점검 보고서</b>, ③ 개발자가 배포 전 수행하는 <b>출시 전 검수</b>.</p>
+
+<h3>13.1 사용자 자가 점검 (채팅: "Stata 연결 점검해줘")</h3>
+<p>MCP 도구 <code>stata_selftest</code>가 아래 항목을 순서대로 수행하고 통과·실패와 조치 방법을 표로 반환함. 예제 자료는 Stata 내장 <code>auto.dta</code>만 사용(사용자 자료 미사용).</p>
+<div class="wrap">
+<table>
+<tr><th style="width:5%">#</th><th style="width:20%">점검 항목</th><th>방법</th><th style="width:26%">통과 기준</th><th style="width:22%">실패 시 안내</th></tr>
+<tr><td>T1</td><td>Stata 설치·라이선스</td><td>탐지된 실행파일로 <code>about</code></td><td>버전·에디션 표시, 만료일이 오늘 이후</td><td>라이선스 갱신 안내</td></tr>
+<tr><td>T2</td><td>COM 연결</td><td><code>stata.StataOLEApp</code> 객체 생성 → <code>display 12345</code></td><td>반환코드 0</td><td>설치 프로그램의 "COM 재등록" 실행(관리자 승인)</td></tr>
+<tr><td>T3</td><td>창 표시·세션 유지</td><td>창 표시 후 <code>scalar t3=1</code> → 다음 호출에서 값 조회</td><td>같은 창에서 값 1 유지</td><td>Stata 창 수동 종료 여부 확인</td></tr>
+<tr><td>T4</td><td>계산 정확성</td><td><code>sysuse auto</code> → <code>summarize price</code>, <code>pwcorr weight length</code></td><td>N=74, 평균 6165.257, 표준편차 2949.496, r=.9460 (허용오차 ±0.001) <span class="tag t1">1차 확인</span>(오늘 Stata 18·19.5 산출값 일치)</td><td>버전 선언·자료 손상 확인</td></tr>
+<tr><td>T5</td><td>로그 반환</td><td>T4 실행 로그를 AI가 수신</td><td>로그의 평균값과 <code>r(mean)</code> 조회값 일치</td><td>로그 경로 권한 확인</td></tr>
+<tr><td>T6</td><td>원자료 차단</td><td><code>list in 1/3</code>, <code>browse</code> 실행 시도</td><td><b>차단됨</b> 응답, 로그에 행 출력 없음</td><td>즉시 사용 중지·보고(보호 장치 실패)</td></tr>
+<tr><td>T7</td><td>do-file 편집기 연동</td><td>점검용 do-file 작성 → 편집기 표시 → 섹션 1개 추가 → 재표시</td><td>편집기에 추가 섹션 반영, 탭 중복 없음</td><td>편집기 탭 수동 새로고침 안내</td></tr>
+<tr><td>T8</td><td>파일 산출</td><td><code>putdocx</code>로 점검 표 Word 생성</td><td>파일 생성·열기 가능</td><td>작업 폴더 쓰기 권한 확인</td></tr>
+<tr><td>T9</td><td>재현 실행</td><td>배치 모드로 점검 do-file 재실행</td><td>T4 수치와 일치</td><td>배치 실행 경로 확인</td></tr>
+<tr><td>T10</td><td>클라이언트 설정</td><td>MCP 서버 버전·최신 Release 비교</td><td>최신 또는 1단계 이내</td><td>안내 사이트에서 업데이트</td></tr>
+</table>
+</div>
+
+<h3>13.2 점검 보고서 (오류 공유용)</h3>
+<ul>
+<li><code>stata_selftest</code> 결과를 <code>문서\StataAgent\점검보고서_날짜.html</code>로 저장</li>
+<li>포함: 앱 종류·버전, MCP 서버 버전, Stata 버전·에디션(라이선스 번호·등록자 <b>제외</b>), Windows 버전, T1~T10 결과, 실패 항목 오류 코드</li>
+<li>제외: 사용자 자료 경로·변수명·분석 로그 원문</li>
+<li>오류 보고 시 이 파일만 첨부하도록 안내 사이트·Issues 양식에 명시</li>
+</ul>
+
+<h3>13.3 사용 중 상시 점검 (스킬 규칙)</h3>
+<ul>
+<li>해석 문장의 모든 수치 → 로그 또는 <code>stata_get_results</code>와 자동 대조, 불일치 시 해석 보류·재조회</li>
+<li>분석 종료 시 <code>stata_reproduce</code>(배치 재실행) 결과 요약 1줄 표시: "재현 일치 / 불일치 n건"</li>
+<li>차단 이벤트 발생 시 채팅에 사유 표시 + 세션 기록에 남김</li>
+</ul>
+
+<h3>13.4 출시 전 검수 (개발자)</h3>
+<div class="wrap">
+<table>
+<tr><th style="width:20%">층위</th><th>내용</th><th style="width:28%">수행 위치</th></tr>
+<tr><td>자동 테스트</td><td>명령 차단 규칙 전수(차단·허용 사례 목록), 출력 필터, do-file 섹션 편집, 설정 파일 병합(기존 설정 보존), 설치·제거</td><td>GitHub Actions(Windows) — Stata 불필요 항목만 <span class="tag t3">논리적 추론</span></td></tr>
+<tr><td>실기 시험 행렬</td><td>Stata 17·18·19(StataNow) × BE·SE·MP 중 확보분 × Claude 데스크톱·Codex 앱 × Windows 10·11, 각 조합 T1~T10</td><td>실제 PC·가상 PC (Stata 라이선스 필요)</td></tr>
+<tr><td>깨끗한 PC 시험</td><td>아무것도 없는 PC에서 안내 사이트만 보고 설치 → 첫 분석까지 소요 시간 측정</td><td>가상 PC 초기화 후 반복</td></tr>
+<tr><td>업무용 PC 시험</td><td>원내 보안 프로그램 설치 PC에서 설치·실행 차단 여부</td><td>원내 업무용 PC</td></tr>
+<tr><td>기법 시나리오</td><td>기술통계~SEM·패널·비선형 8종 예제(공개 자료) 결과가 사전 산출 기준값과 일치</td><td>실제 PC</td></tr>
+<tr><td>출시 체크리스트</td><td>서명 확인, 체크섬 게시, 변경 요약, 안내 사이트 버전 갱신, 이전 버전 업데이트 시험</td><td>Release 생성 전</td></tr>
+</table>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="s14">14. 위험요인·미확인 사항</h2>
+<table>
+<tr><th style="width:30%">항목</th><th>내용</th><th style="width:22%">대응</th></tr>
+<tr><td>Do-file Editor 갱신(F3)</td><td>외부에서 수정한 파일을 편집기가 자동 재로드하는지, <code>doedit</code> 재호출 시 중복 탭 발생 여부 <span class="tag t4">미확인</span></td><td>Phase 0 실측 후 방식 확정</td></tr>
+<tr><td>사용자가 먼저 연 창 연결</td><td>COM 구조상 불가 <span class="tag t1">1차 확인</span></td><td>"AI가 연 창에서 작업" 운영 규칙화</td></tr>
+<tr><td>COM 등록 관리자 권한</td><td>원내 PC 권한 정책상 불가 가능성 <span class="tag t4">미확인</span></td><td>배치 백엔드 대체 경로</td></tr>
+<tr><td>보안 프로그램 오탐</td><td>원격·자동화 도구가 보안 솔루션에 의해 차단될 가능성 <span class="tag t3">논리적 추론</span></td><td>사전 예외 등록 협의</td></tr>
+<tr><td>외부 오픈소스 의존</td><td>stata-gui-mcp Beta·개인 유지보수</td><td>버전 고정·포크 보관</td></tr>
+<tr><td>로그 전송 범위</td><td>요약통계도 모델 제공자에 전송됨</td><td>민감자료는 반출 기준 확인·소표본 마스킹</td></tr>
+<tr><td>Mac 지원</td><td>AppleScript 경로 미검증</td><td>후순위</td></tr>
+<tr><td>Codex 승인 정책</td><td>도구별 승인 설정 가능 범위 <span class="tag t4">미확인</span></td><td>Phase 4에서 확인</td></tr>
+<tr><td>요금제 사용량 한도</td><td>Pro·Plus 모두 사용량 한도 존재 → 긴 로그 반복 판독 시 한도 도달 가능 <span class="tag t3">논리적 추론</span></td><td>로그 요약 반환(핵심 표만), 전체 로그는 필요 시 조회</td></tr>
+<tr><td>미서명 실행파일 차단</td><td>exe 서버·설치 프로그램이 보안 프로그램에 의해 격리될 가능성 <span class="tag t3">논리적 추론</span></td><td>코드 서명 인증서, 원내 배포 시 보안 담당 예외 등록</td></tr>
+<tr><td>Claude 스킬 자동 설치</td><td>설치 프로그램이 Claude 계정에 스킬을 자동 업로드하는 경로 <span class="tag t4">미확인</span></td><td>수동 업로드 1회 안내, 또는 스킬 내용을 MCP 서버 도구 설명·프롬프트로 내장하는 대안 검토</td></tr>
+<tr><td>Codex 설정 위치</td><td>Windows 설정 파일 경로 출처 간 상충 <span class="tag t4">미확인</span></td><td>설치 프로그램이 복수 경로 탐지</td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 id="s15">15. 참고자료</h2>
+<ul>
+<li>StataCorp. (n.d.). <i>Using Stata Automation</i>. <a href="https://www.stata.com/automation/">https://www.stata.com/automation/</a></li>
+<li>StataCorp. (2025). <i>Stata 19 reporting reference manual</i>. Stata Press. <a href="https://www.stata.com/manuals/rpt.pdf">https://www.stata.com/manuals/rpt.pdf</a></li>
+<li>shichengg. (2026). <i>stata-gui-mcp</i> (Version 1.1.0) [Software]. PyPI. <a href="https://pypi.org/project/stata-gui-mcp/">https://pypi.org/project/stata-gui-mcp/</a></li>
+<li>SepineTam. (n.d.). <i>Stata-MCP</i> [Software]. <a href="https://glama.ai/mcp/servers/@SepineTam/stata-mcp/blob/1b6da6a7abcc87dfc9fd2a9067d6a238cd073ae5/docs/overview.md">https://glama.ai/mcp/servers/@SepineTam/stata-mcp</a></li>
+<li>agent-config. (n.d.). <i>Codex: AGENTS.md, MCP servers, skills</i>. docs.rs. <a href="https://docs.rs/crate/agent-config/0.3.3/source/docs/agents/codex.md">https://docs.rs/crate/agent-config/0.3.3/source/docs/agents/codex.md</a></li>
+<li>Anthropic. (n.d.). <i>Build a desktop extension with MCPB</i>. Claude Docs. <a href="https://claude.com/docs/connectors/building/mcpb">https://claude.com/docs/connectors/building/mcpb</a></li>
+<li>Anthropic. (2025). <i>Desktop Extensions: One-click MCP server installation for Claude Desktop</i>. <a href="https://www.anthropic.com/engineering/desktop-extensions">https://www.anthropic.com/engineering/desktop-extensions</a></li>
+<li>Model Context Protocol. (n.d.). <i>mcpb</i> [Software]. GitHub. <a href="https://github.com/modelcontextprotocol/mcpb">https://github.com/modelcontextprotocol/mcpb</a></li>
+<li>Anthropic. (n.d.). <i>Use skills in Claude</i>. Claude Help Center. <a href="https://support.claude.com/en/articles/12512180-managing-skills-in-claude">https://support.claude.com/en/articles/12512180-managing-skills-in-claude</a></li>
+<li>OpenAI. (n.d.). <i>Codex app</i>. OpenAI Developers. <a href="https://developers.openai.com/codex/app">https://developers.openai.com/codex/app</a></li>
+<li>Engadget. (2026). <i>OpenAI brings its Codex coding app to Windows</i>. <a href="https://engadget.com/ai/openai-brings-its-codex-coding-app-to-windows-195345429.html">https://engadget.com/ai/openai-brings-its-codex-coding-app-to-windows-195345429.html</a></li>
+<li>Heiss, A. (2017). <i>Sublime Stata Enhanced</i> [Software]. GitHub. <a href="https://github.com/andrewheiss/SublimeStataEnhanced">https://github.com/andrewheiss/SublimeStataEnhanced</a></li>
+<li>Dunn, C. W., Schultz, D. T., &amp; Musser, J. M. (2026). Designing reproducible large-language-model-assisted scientific analyses. <i>Patterns</i>. <a href="https://doi.org/10.1016/j.patter.2026.101644">https://doi.org/10.1016/j.patter.2026.101644</a></li>
+<li>American Psychological Association. (n.d.). <i>APA journals policy on generative AI</i>. <a href="https://www.apa.org/pubs/journals/resources/publishing-tips/policy-generative-ai">https://www.apa.org/pubs/journals/resources/publishing-tips/policy-generative-ai</a></li>
+</ul>
+
+</main>
+</body>
+</html>
