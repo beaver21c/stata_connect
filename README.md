@@ -3,6 +3,7 @@
 채팅(Claude·Codex)으로 요청 → AI가 do-file 작성·수정 → **Stata가 계산** → AI가 로그를 판독·검증·해석하는 분석 환경.
 원자료 행은 AI로 보내지 않도록 명령 차단·출력 필터를 둠.
 
+- **사용자 설명서·다운로드: https://beaver21c.github.io/stata_connect/** (원본 `site/`, main 반영 시 자동 배포)
 - 설계서: [`docs/design/stata_agent_design.html`](docs/design/stata_agent_design.html)
 - 구현 현황·검증 지위·실기 검증 체크리스트: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
 
@@ -12,7 +13,8 @@
 |---|---|
 | MCP 서버(도구 17종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
-| 단일 exe·코드 서명·`.mcpb`·통합 설치 프로그램·안내 사이트 | 미착수(설계서 Phase 5) |
+| 사용자 설명서 사이트(GitHub Pages) + 분석 스킬 ZIP 다운로드 | 구현(설치 프로그램 칸은 "준비 중" 표시) |
+| 단일 exe·코드 서명·`.mcpb`·통합 설치 프로그램·Releases | 미착수(설계서 Phase 5) |
 
 ## 구조
 
@@ -34,6 +36,7 @@ stata_connect/
 │   └── cli.py                   stata-agent 명령
 ├── skills/stata-analysis/       SKILL.md·기법별 references·templates
 ├── installer/                   doctor.ps1·register_com.ps1·configure_clients.py
+├── site/                        사용자 설명서 사이트(index.html·build.py)
 ├── docs/                        설계서·구현 현황
 └── tests/                       자동 테스트
 ```

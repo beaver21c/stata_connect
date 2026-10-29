@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stata 에이전트 설치 안내</title>
+<meta name="description" content="채팅으로 Stata 분석을 요청하고 계산은 내 PC의 Stata가 하는 Stata 에이전트의 설치·사용 안내와 다운로드.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f4e8c'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'%3ES%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#ffffff; --fg:#1b2130; --muted:#5a6375; --line:#dde2ea; --soft:#f4f6fa; --card:#ffffff;
+  --accent:#1f4e8c; --accent-fg:#ffffff; --accent-soft:#e8eef8;
+  --ok:#1b7a45; --ok-soft:#e6f4ec; --warn:#9a5a00; --warn-soft:#fdf2e1; --bad:#a11d2f;
+  --radius:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151a; --fg:#e6e9ef; --muted:#9aa3b3; --line:#2b313b; --soft:#1a1e25; --card:#171b21;
+    --accent:#7fb0ef; --accent-fg:#0d1622; --accent-soft:#1c2a3d;
+    --ok:#6fcf97; --ok-soft:#173023; --warn:#f2b45c; --warn-soft:#33270f; --bad:#f08a96;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151a; --fg:#e6e9ef; --muted:#9aa3b3; --line:#2b313b; --soft:#1a1e25; --card:#171b21;
+  --accent:#7fb0ef; --accent-fg:#0d1622; --accent-soft:#1c2a3d;
+  --ok:#6fcf97; --ok-soft:#173023; --warn:#f2b45c; --warn-soft:#33270f; --bad:#f08a96;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  font-size:16px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere}
+a{color:var(--accent)}
+code,kbd{font-family:Consolas,"D2Coding",ui-monospace,monospace;font-size:.9em;background:var(--soft);
+  border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px}
+
+/* 상단 메뉴 */
+.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;gap:4px;overflow-x:auto;white-space:nowrap;padding-top:8px;padding-bottom:8px;scrollbar-width:none}
+.nav a{text-decoration:none;color:var(--muted);font-size:14px;padding:6px 10px;border-radius:8px}
+.nav a:hover,.nav a:focus-visible{background:var(--soft);color:var(--fg)}
+.nav .brand{color:var(--fg);font-weight:700}
+
+/* 머리 */
+header.hero{padding:40px 0 24px}
+.hero h1{font-size:30px;line-height:1.3;margin:0 0 10px;letter-spacing:-.01em}
+.hero p.lead{font-size:18px;color:var(--muted);margin:0 0 18px}
+.status{display:flex;gap:10px;align-items:flex-start;background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);
+  border-radius:var(--radius);padding:12px 14px;font-size:15px}
+.status b{color:var(--warn)}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;font-size:15px;
+  padding:11px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn[aria-disabled="true"]{background:var(--soft);color:var(--muted);border-color:var(--line);cursor:not-allowed}
+
+section{padding:28px 0;border-top:1px solid var(--line)}
+section h2{font-size:22px;margin:0 0 6px}
+section .sub{color:var(--muted);margin:0 0 18px}
+h3{font-size:17px;margin:22px 0 8px}
+
+/* 흐름도 */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;counter-reset:f;margin:6px 0 12px}
+.flow div{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 12px 12px;font-size:14.5px}
+.flow div::before{counter-increment:f;content:counter(f);display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;
+  background:var(--accent);color:var(--accent-fg);font-size:13px;font-weight:700;margin-bottom:6px}
+.flow b{display:block;font-size:15px;margin-bottom:2px}
+.flow .who{color:var(--muted);font-size:13px}
+@media (max-width:680px){.flow{grid-template-columns:1fr 1fr}}
+.note{font-size:14px;color:var(--muted)}
+
+/* 준비물 */
+.checklist{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.checklist div{background:var(--soft);border-radius:var(--radius);padding:14px}
+.checklist b{display:block;margin-bottom:4px}
+@media (max-width:680px){.checklist{grid-template-columns:1fr}}
+
+/* 다운로드 */
+.dl{display:grid;gap:12px}
+.dl article{border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:var(--card)}
+.dl .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.dl h3{margin:0;font-size:17px}
+.dl .file{font-family:Consolas,ui-monospace,monospace;font-size:13.5px;color:var(--muted)}
+.dl p{margin:8px 0}
+.meta{font-size:13px;color:var(--muted)}
+.meta code{font-size:12px;word-break:break-all}
+.dl details{margin-top:12px}
+.chip{display:inline-block;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.wait{background:var(--warn-soft);color:var(--warn)}
+
+/* 탭(요금제) */
+.tabs{margin-top:6px}
+.tabs input{position:absolute;opacity:0;pointer-events:none}
+.tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabbar label{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+#t-claude:checked ~ .tabbar label[for="t-claude"],
+#t-codex:checked ~ .tabbar label[for="t-codex"]{color:var(--fg);border-bottom-color:var(--accent)}
+#t-claude:focus-visible ~ .tabbar label[for="t-claude"],
+#t-codex:focus-visible ~ .tabbar label[for="t-codex"]{outline:2px solid var(--accent);outline-offset:2px}
+.panel{display:none}
+#t-claude:checked ~ #p-claude,#t-codex:checked ~ #p-codex{display:block}
+
+/* 단계 */
+ol.steps{list-style:none;padding:0;margin:0;counter-reset:s}
+ol.steps>li{position:relative;padding:0 0 18px 46px;counter-increment:s}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;
+  display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:700}
+ol.steps>li:not(:last-child)::after{content:"";position:absolute;left:15px;top:36px;bottom:4px;width:2px;background:var(--line)}
+ol.steps b.t{display:block;font-size:16px}
+.path{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:6px 0;font-size:14px}
+.path span{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+.path i{font-style:normal;color:var(--muted)}
+
+/* 대화 예시 */
+.chat{display:grid;gap:8px;margin:8px 0}
+.msg{max-width:90%;padding:10px 13px;border-radius:14px;font-size:15px}
+.msg.me{justify-self:end;background:var(--accent);color:var(--accent-fg);border-bottom-right-radius:4px}
+.msg.ai{justify-self:start;background:var(--soft);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg small{display:block;opacity:.8;font-size:12.5px;margin-top:2px}
+
+/* 표 */
+.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top}
+.tbl th{font-size:13px;color:var(--muted);font-weight:600}
+.tbl td:first-child{white-space:nowrap;color:var(--muted);font-family:Consolas,ui-monospace,monospace;font-size:13px}
+
+/* 질문 */
+details{border:1px solid var(--line);border-radius:10px;padding:0 14px;margin:8px 0;background:var(--card)}
+details summary{cursor:pointer;padding:12px 0;font-weight:600;list-style-position:outside}
+details[open] summary{border-bottom:1px solid var(--line);margin-bottom:8px}
+details>*:last-child{margin-bottom:12px}
+blockquote{margin:8px 0;padding:12px 14px;background:var(--soft);border-left:4px solid var(--accent);border-radius:0 8px 8px 0;font-size:15px}
+footer{border-top:1px solid var(--line);padding:22px 0 40px;color:var(--muted);font-size:13.5px}
+.principles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.principles div{background:var(--soft);border-radius:10px;padding:12px 14px;font-size:14.5px}
+.principles b{display:block}
+@media (max-width:680px){.principles{grid-template-columns:1fr}.hero h1{font-size:25px}.hero p.lead{font-size:16.5px}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="목차">
+  <div class="wrap">
+    <a class="brand" href="#top">Stata 에이전트</a>
+    <a href="#how">작동 방식</a>
+    <a href="#ready">준비물</a>
+    <a href="#download">다운로드</a>
+    <a href="#start">시작하기</a>
+    <a href="#first">첫 분석</a>
+    <a href="#check">연결 점검</a>
+    <a href="#protect">자료 보호</a>
+    <a href="#faq">자주 묻는 질문</a>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+<header class="hero">
+  <h1>채팅으로 요청하면,<br>계산은 내 PC의 Stata가 합니다</h1>
+  <p class="lead">Claude 또는 ChatGPT(Codex)에게 분석을 말로 요청하면 AI가 do-file을 쓰고, 연구자가 승인하면 Stata가 계산하고, AI가 결과 로그를 읽어 검증·해석까지 돕는 도구.</p>
+  <div class="status" role="note">
+    <span aria-hidden="true">⚠️</span>
+    <div><b>개발 미리보기 v{{VERSION}}</b> — 클릭 몇 번으로 끝나는 <b>설치 프로그램은 준비 중</b>(실제 Stata 환경 시험 후 공개). 지금은 준비물 확인과 분석 스킬 받기까지 가능.</div>
+  </div>
+  <div class="cta">
+    <a class="btn" href="#download">무엇을 받나요?</a>
+    <a class="btn ghost" href="#start">시작하기 순서 보기</a>
+  </div>
+</header>
+
+<section id="how">
+  <h2>작동 방식</h2>
+  <p class="sub">AI는 코드 작성과 결과 판독만 하고, 모든 통계량은 Stata가 계산함.</p>
+  <div class="flow">
+    <div><b>채팅으로 요청</b><span class="who">연구자</span><br>“가격을 종속변수로 회귀분석 추가해줘”</div>
+    <div><b>do-file 작성</b><span class="who">AI</span><br>섹션 단위로 코드를 쓰고 Stata 편집기에 표시</div>
+    <div><b>승인 후 계산</b><span class="who">연구자 → Stata</span><br>승인 버튼을 누르면 내 PC의 Stata가 실행</div>
+    <div><b>검증·해석</b><span class="who">AI</span><br>로그를 읽고 가정 위배를 점검, 수정안·해석 제시</div>
+  </div>
+  <p class="note">개별 관측치 값(자료의 행)은 AI로 보내지 않음. 요약통계·검정 결과만 전달됨 → <a href="#protect">자료 보호 원칙</a></p>
+</section>
+
+<section id="ready">
+  <h2>준비물</h2>
+  <p class="sub">세 가지만 있으면 됨. 프로그래밍 도구(Python 등)는 따로 설치하지 않음.</p>
+  <div class="checklist">
+    <div><b>① Windows PC</b>Windows 10 또는 11. Mac은 추후 지원 예정.</div>
+    <div><b>② 설치된 Stata</b>버전 17·18·19(StataNow 포함), BE·SE·MP 모두 가능. 라이선스가 유효해야 함.</div>
+    <div><b>③ 유료 요금제 1개</b><b style="display:inline;font-weight:600">Claude Pro</b> 또는 <b style="display:inline;font-weight:600">ChatGPT Plus</b>(각 월 20달러 내외) 중 하나.</div>
+  </div>
+</section>
+
+<section id="download">
+  <h2>다운로드</h2>
+  <p class="sub">받을 파일은 최종적으로 설치 프로그램 1개. 현재 받을 수 있는 것은 분석 스킬 파일뿐임.</p>
+  <div class="dl">
+    <article>
+      <div class="head">
+        <div><h3>통합 설치 프로그램</h3><div class="file">StataAgentSetup.exe</div></div>
+        <span class="chip wait">준비 중</span>
+      </div>
+      <p>이 파일 하나로 Stata 연결 설정, Claude·Codex 앱 연결, 예제 폴더 생성까지 한 번에 진행. 관리자 승인 창이 한 번 뜸.</p>
+      <a class="btn" aria-disabled="true" role="link" tabindex="-1">실제 Stata 환경 시험 후 공개 예정</a>
+    </article>
+    <article>
+      <div class="head">
+        <div><h3>분석 스킬</h3><div class="file">{{SKILL_ZIP}}</div></div>
+        <span class="chip ok">지금 받기 가능</span>
+      </div>
+      <p>AI에게 Stata 분석 절차(승인 → 실행 → 검증 → 해석, 기법별 점검표)를 알려 주는 지침 묶음. Claude 앱에는 <a href="#start">시작하기</a>의 방법으로 한 번 올림.</p>
+      <p class="note">스킬만으로는 Stata에 연결되지 않음 → 설치 프로그램 공개 후 함께 사용.</p>
+      <a class="btn" href="downloads/{{SKILL_ZIP}}" download>스킬 받기 ({{SKILL_SIZE}})</a>
+      <details>
+        <summary>파일 확인값(SHA-256)</summary>
+        <p class="meta">받은 파일이 원본과 같은지 확인하는 값. 필요한 경우에만 확인.</p>
+        <p class="meta"><code>{{SKILL_SHA256}}</code></p>
+      </details>
+    </article>
+    <article>
+      <div class="head">
+        <div><h3>Claude 데스크톱 확장</h3><div class="file">stata-agent.mcpb</div></div>
+        <span class="chip wait">준비 중</span>
+      </div>
+      <p>설치 프로그램 안에 포함될 예정. Claude 앱만 쓰는 경우 이 파일을 더블클릭해 따로 설치할 수도 있게 할 계획.</p>
+    </article>
+  </div>
+</section>
+
+<section id="start">
+  <h2>시작하기</h2>
+  <p class="sub">쓰는 요금제를 고르면 해당 순서가 보임.</p>
+  <div class="tabs">
+    <input type="radio" name="plan" id="t-claude" checked>
+    <input type="radio" name="plan" id="t-codex">
+    <div class="tabbar" role="tablist">
+      <label for="t-claude" role="tab">Claude Pro</label>
+      <label for="t-codex" role="tab">ChatGPT Plus</label>
+    </div>
+
+    <div class="panel" id="p-claude">
+      <ol class="steps">
+        <li><b class="t">Claude 데스크톱 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
+          <p><a href="https://claude.com/download">claude.com/download</a>에서 Windows용 앱을 받아 설치하고 Pro 계정으로 로그인.</p></li>
+        <li><b class="t">코드 실행 기능 켜기</b> <span class="chip ok">지금 가능</span>
+          <div class="path"><span>Settings</span><i>›</i><span>Capabilities</span><i>›</i><span>Create and edit files</span><i>켜기</i></div>
+          <p class="note">스킬을 쓰려면 필요함(Claude 공식 안내). 메뉴 이름은 앱 버전에 따라 “Code execution and file creation”으로 보일 수 있음.</p></li>
+        <li><b class="t">분석 스킬 올리기</b> <span class="chip ok">지금 가능</span>
+          <p>위 <a href="#download">다운로드</a>에서 받은 ZIP 파일을 압축 풀지 말고 그대로 올림.</p>
+          <div class="path"><span>Customize</span><i>›</i><span>Skills</span><i>›</i><span>+</span><i>›</i><span>+ Create skill</span><i>›</i><span>Upload a skill</span></div></li>
+        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
+          <p>StataAgentSetup.exe 실행 → 관리자 승인 1회 → 다음 → 완료. Stata 연결과 Claude 앱 연결이 자동으로 설정됨.</p></li>
+        <li><b class="t">Claude 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span>
+          <p>창만 닫지 말고 작업 표시줄 아이콘에서 종료. 설정을 다시 읽어야 연결됨.</p></li>
+        <li><b class="t">채팅에 “Stata 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+          <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
+      </ol>
+    </div>
+
+    <div class="panel" id="p-codex">
+      <ol class="steps">
+        <li><b class="t">Codex 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
+          <p>Microsoft Store에서 “Codex”를 찾아 설치하고 ChatGPT Plus 계정으로 로그인. ChatGPT Plus에는 Codex 사용이 포함됨.</p>
+          <p class="note">OpenAI 공식 안내: <a href="https://developers.openai.com/codex/app">developers.openai.com/codex/app</a></p></li>
+        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
+          <p>StataAgentSetup.exe 실행 → 관리자 승인 1회 → 다음 → 완료. Codex 설정과 분석 스킬이 자동으로 들어감(따로 올릴 필요 없음).</p></li>
+        <li><b class="t">Codex 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span></li>
+        <li><b class="t">채팅에 “Stata 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+          <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="first">
+  <h2>첫 분석 해 보기</h2>
+  <p class="sub">Stata에 들어 있는 예제 자료(auto)로 연습. 설치 프로그램 공개 후 사용 가능.</p>
+  <div class="chat">
+    <div class="msg me">auto 자료 열고 기술통계 보여줘</div>
+    <div class="msg ai">Stata 창을 열고 01_describe.do를 작성했습니다. 실행할까요?<small>승인 창 → “허용” 클릭</small></div>
+    <div class="msg me">가격을 종속변수로 회귀분석 추가해줘</div>
+    <div class="msg ai">같은 파일에 회귀 섹션을 추가해 실행했습니다. 결과 수치는 로그에서 그대로 인용합니다.</div>
+    <div class="msg me">이분산 확인하고 필요하면 고쳐줘</div>
+    <div class="msg ai">이분산 검정 결과를 확인했고, 강건 표준오차 모형을 별도 섹션으로 추가해 비교합니다.</div>
+    <div class="msg me">결과표 Word로 만들어줘</div>
+    <div class="msg ai">output/tables 폴더에 표를 저장했습니다.</div>
+  </div>
+  <ul>
+    <li>AI가 연 Stata 창은 그대로 보이며, 연구자가 그 창에서 직접 명령을 이어서 입력해도 됨.</li>
+    <li>모든 분석은 do-file로 남고, <code>00_master.do</code> 하나로 전체 결과를 다시 만들 수 있음.</li>
+    <li>먼저 손으로 열어 둔 Stata 창에는 연결되지 않음 → AI가 연 창에서 작업.</li>
+  </ul>
+</section>
+
+<section id="check">
+  <h2>연결 점검</h2>
+  <p class="sub">문제가 생기면 채팅에 <b>“Stata 연결 점검해줘”</b>라고 입력. Stata 예제 자료만 쓰며 내 자료는 쓰지 않음.</p>
+  <table class="tbl">
+    <thead><tr><th>항목</th><th>무엇을 확인하나</th></tr></thead>
+    <tbody>
+      <tr><td>T1</td><td>Stata 설치와 라이선스 만료 여부</td></tr>
+      <tr><td>T2</td><td>AI가 Stata를 열고 명령을 보낼 수 있는지</td></tr>
+      <tr><td>T3</td><td>같은 Stata 창에서 작업 상태가 유지되는지</td></tr>
+      <tr><td>T4</td><td>계산 결과가 기준값과 일치하는지</td></tr>
+      <tr><td>T5</td><td>AI가 결과 로그를 제대로 받는지</td></tr>
+      <tr><td>T6</td><td>자료의 행을 보여 주는 명령이 차단되는지</td></tr>
+      <tr><td>T7</td><td>do-file 편집기에 수정 내용이 반영되는지(화면으로 확인)</td></tr>
+      <tr><td>T8</td><td>Word 파일을 만들 수 있는지</td></tr>
+      <tr><td>T9</td><td>같은 분석을 다시 돌려도 결과가 같은지</td></tr>
+      <tr><td>T10</td><td>최신 버전인지</td></tr>
+    </tbody>
+  </table>
+  <p class="note">점검이 끝나면 <code>문서\StataAgent\점검보고서_날짜.html</code>이 만들어짐. 라이선스 번호·등록자 이름, 자료 경로·변수명은 들어가지 않음.</p>
+</section>
+
+<section id="protect">
+  <h2>자료 보호 원칙</h2>
+  <p class="sub">AI가 실수로라도 원자료를 보지 않도록 설계함.</p>
+  <div class="principles">
+    <div><b>계산은 Stata가</b>AI는 수치를 직접 계산하지 않고, 로그에 나온 값만 인용함.</div>
+    <div><b>원자료는 AI로 보내지 않음</b>자료의 행을 보여 주는 명령(list·browse 등)은 실행 전에 차단됨.</div>
+    <div><b>실행 전 연구자 승인</b>코드를 실행하거나 파일을 바꾸는 작업은 매번 승인 창이 뜸.</div>
+    <div><b>결과는 눈으로 확인</b>AI가 연 Stata 창에서 결과를 직접 보고 이어서 작업할 수 있음.</div>
+    <div><b>항상 재현 가능</b>모든 분석이 do-file로 남아 처음부터 다시 실행할 수 있음.</div>
+    <div><b>AI 사용 내역 기록</b>논문 연구방법 절에 쓸 AI 사용 공개문 초안을 만들어 줌.</div>
+  </div>
+  <h3>차단되는 것과 보내지는 것</h3>
+  <ul>
+    <li><b>차단</b>: 자료 행 출력(list·browse·edit), 특정 관측치 값 표시, 운영체제 명령 실행, 파일 삭제, 프로젝트 폴더 밖으로 자료 내보내기, 원자료 폴더(data) 덮어쓰기.</li>
+    <li><b>확인 후 실행</b>: 고유값이 대부분인 변수(아이디 등)의 빈도표, 자료 파일 내보내기 등은 이유를 설명하고 연구자 동의를 받은 뒤에만 실행.</li>
+    <li><b>AI로 보내지는 것</b>: 요약통계, 검정 결과, 변수 이름·라벨 같은 자료 구조 정보.</li>
+  </ul>
+  <p class="note">이 장치는 사고를 막기 위한 안전장치이며 완전한 보안 장치는 아님. 행정자료·민감자료는 기관의 반출 기준과 승인 절차를 함께 따를 것.</p>
+</section>
+
+<section id="faq">
+  <h2>자주 묻는 질문</h2>
+  <details>
+    <summary>설치 프로그램은 언제 나오나요?</summary>
+    <p>실제 Stata(17·18·19)와 Claude·Codex 앱에서 연결 시험을 마친 뒤 공개함. 공개되면 이 페이지의 다운로드 칸에 버튼이 생김.</p>
+  </details>
+  <details>
+    <summary>설치할 때 “Windows의 PC 보호” 파란 창이 뜨면?</summary>
+    <p>초기 버전은 코드 서명 인증서가 없어 이 창이 뜰 수 있음. 이 페이지에서 받은 파일인지 확인한 뒤 “추가 정보 → 실행”을 누름. 기관 PC에서는 보안 프로그램이 막을 수 있으므로 전산 담당자에게 예외 등록을 요청.</p>
+  </details>
+  <details>
+    <summary>“관리자 승인”은 왜 필요한가요?</summary>
+    <p>AI가 Stata 창을 열고 명령을 보내려면 Stata를 Windows에 한 번 등록해야 하며, 이때 관리자 권한이 필요함. 권한이 없으면 창을 띄우지 않는 방식(배치 모드)으로만 작동하고, 일부 기능이 줄어듦.</p>
+  </details>
+  <details>
+    <summary>“라이선스가 만료됨”이라고 나오면?</summary>
+    <p>Stata 라이선스를 갱신해야 함. PC에 여러 버전의 Stata가 있으면 유효한 라이선스 중 최신 버전을 자동으로 고름.</p>
+  </details>
+  <details>
+    <summary>설치 후 채팅에서 Stata 도구가 보이지 않아요</summary>
+    <p>Claude·Codex 앱을 작업 표시줄에서 완전히 종료한 뒤 다시 실행. 설정 변경은 앱을 다시 시작해야 반영됨.</p>
+  </details>
+  <details>
+    <summary>“차단됨”이라는 메시지가 나왔어요</summary>
+    <p>자료의 행이 AI로 넘어갈 수 있는 명령이 막힌 것임. AI가 요약통계 등 다른 방법으로 바꿔 제안함. 꼭 행을 봐야 하면 연구자가 Stata 창에서 직접 실행.</p>
+  </details>
+  <details>
+    <summary>오래 걸리는 분석(부트스트랩 등)은?</summary>
+    <p>창 연결 방식은 명령 하나당 약 3분(180초) 제한이 있음. 오래 걸리는 분석은 AI가 백그라운드 실행(배치 모드)으로 돌리도록 안내함.</p>
+  </details>
+  <details>
+    <summary>Mac에서도 되나요?</summary>
+    <p>현재는 Windows 우선 개발 중. Mac 지원은 이후 단계에서 검토.</p>
+  </details>
+</section>
+
+<section id="disclosure">
+  <h2>AI 사용 공개문 예시</h2>
+  <p class="sub">분석이 끝나면 AI가 사용 기록을 바탕으로 초안을 만들어 줌. 반드시 연구자가 검토·수정해 사용.</p>
+  <blockquote>본 연구의 자료 분석에는 생성형 AI(사용 도구명)를 Stata 분석 보조 도구로 활용하였다. AI는 do-file 작성·수정과 실행 로그 판독을 보조하였으며, 모든 통계량은 Stata가 산출하였다. 개별 관측치 값은 AI에 전송하지 않도록 명령 차단·출력 필터를 적용하였다. 연구자는 모든 실행 코드를 실행 전에 검토·승인하였고, 결과 해석의 최종 책임은 연구자에게 있다.</blockquote>
+</section>
+
+<section id="report">
+  <h2>오류 알리기</h2>
+  <p>연결 점검에서 만들어진 <b>점검 보고서 파일만</b> 첨부해 <a href="https://github.com/beaver21c/stata_connect/issues/new">오류 알리기</a>에 올림. 분석 로그 원문, 자료 파일 경로, 변수 값은 올리지 않음.</p>
+  <details>
+    <summary>개발자용: 현재 개발판 설치 방법</summary>
+    <p class="note">명령줄 사용이 필요한 개발·시험용 경로이며 일반 사용자는 설치 프로그램 공개를 기다리면 됨. 자세한 내용은 <a href="{{REPO_URL}}">소스 저장소</a>의 README와 docs/IMPLEMENTATION_STATUS.md 참조.</p>
+  </details>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    Stata 에이전트 v{{VERSION}} · 개발 미리보기 · 페이지 갱신 {{BUILD_DATE}}<br>
+    Stata는 StataCorp LLC의 등록상표이며, 이 도구는 StataCorp·Anthropic·OpenAI와 관련 없는 독립 프로젝트임.
+  </div>
+</footer>
+</body>
+</html>

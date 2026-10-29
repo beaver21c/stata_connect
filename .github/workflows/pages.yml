@@ -1,0 +1,47 @@
+name: pages
+
+# 설명서 사이트(설계서 §0.6) 배포 → https://beaver21c.github.io/stata_connect/
+# 최초 1회: 저장소 Settings > Pages > Build and deployment > Source를 "GitHub Actions"로 지정해야 함
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "skills/**"
+      - "mcp_server/stata_agent/__init__.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build site
+        run: python site/build.py --out _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
