@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(/data/**)",
+      "Edit(/data/**)"
+    ],
+    "allow": [
+      "mcp__stata__stata_status",
+      "mcp__stata__stata_selftest",
+      "mcp__stata__stata_schema",
+      "mcp__stata__stata_show_in_editor",
+      "mcp__stata__stata_read_log",
+      "mcp__stata__stata_get_results",
+      "mcp__stata__stata_break",
+      "mcp__stata__stata_usage_summary"
+    ],
+    "ask": [
+      "mcp__stata__stata_open_session",
+      "mcp__stata__stata_load_data",
+      "mcp__stata__stata_write_dofile",
+      "mcp__stata__stata_patch_dofile",
+      "mcp__stata__stata_run_section",
+      "mcp__stata__stata_run_dofile",
+      "mcp__stata__stata_export",
+      "mcp__stata__stata_reproduce",
+      "mcp__stata__stata_install_package"
+    ]
+  }
+}
