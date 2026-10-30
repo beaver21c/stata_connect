@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(/data/**)",
+      "Edit(/data/**)"
+    ],
+    "allow": [
+      "mcp__spss__spss_status",
+      "mcp__spss__spss_selftest",
+      "mcp__spss__spss_schema",
+      "mcp__spss__spss_read_output",
+      "mcp__spss__spss_usage_summary"
+    ],
+    "ask": [
+      "mcp__spss__spss_open_session",
+      "mcp__spss__spss_load_data",
+      "mcp__spss__spss_write_syntax",
+      "mcp__spss__spss_patch_syntax",
+      "mcp__spss__spss_run_section",
+      "mcp__spss__spss_run_syntax_file",
+      "mcp__spss__spss_export",
+      "mcp__spss__spss_reproduce"
+    ]
+  }
+}
