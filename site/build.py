@@ -1,7 +1,8 @@
 """설명서 사이트 빌드(설계서 §0.6 온라인 안내 사이트) → GitHub Pages 배포용 ``_site/``.
 
 - ``site/index.html``의 자리표시자({{VERSION}} 등)를 채움
-- 분석 스킬 ZIP 생성: Claude 앱 업로드 규격에 맞춰 ZIP 최상위에 ``stata-analysis/`` 폴더
+- 페이지: index.html(Stata)·spss.html(SPSS), 공용 스타일 style.css
+- 분석 스킬 ZIP 생성(Stata·SPSS): Claude 앱 업로드 규격에 맞춰 ZIP 최상위에 스킬 폴더
   (Claude 공식 안내: "Upload a ZIP file containing your skill folder")
 - 같은 내용이면 같은 확인값(SHA-256)이 나오도록 ZIP 항목 순서·시각 고정
 
@@ -21,6 +22,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SITE_SRC = ROOT / "site"
 SKILL_DIR = ROOT / "skills" / "stata-analysis"
+SPSS_SKILL_DIR = ROOT / "skills" / "spss-analysis"
+PAGES = ("index.html", "spss.html")
+ASSETS = ("style.css",)
 VERSION_FILE = ROOT / "mcp_server" / "stata_agent" / "__init__.py"
 REPO_URL = "https://github.com/beaver21c/stata_connect"
 _FIXED_TIME = (1980, 1, 1, 0, 0, 0)
@@ -54,32 +58,40 @@ def human_size(n: int) -> str:
     return f"{n / 1024:.0f} KB" if n < 1024 * 1024 else f"{n / 1024 / 1024:.1f} MB"
 
 
+def _zip_values(prefix: str, skill_dir: Path, version: str, downloads: Path) -> tuple[dict, str]:
+    zip_name = f"{skill_dir.name}-{version}.zip"
+    data = build_skill_zip(downloads / zip_name, skill_dir).read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    return ({f"{prefix}SKILL_ZIP": zip_name, f"{prefix}SKILL_SIZE": human_size(len(data)),
+             f"{prefix}SKILL_SHA256": sha}, f"{sha}  {zip_name}\n")
+
+
 def build(out: Path) -> dict:
     version = read_version()
     if out.exists():
         shutil.rmtree(out)
     downloads = out / "downloads"
-    zip_name = f"stata-analysis-{version}.zip"
-    zip_path = build_skill_zip(downloads / zip_name)
-    data = zip_path.read_bytes()
-    sha = hashlib.sha256(data).hexdigest()
-    (downloads / "SHA256SUMS.txt").write_text(f"{sha}  {zip_name}\n", encoding="utf-8")
+    stata_vals, stata_sum = _zip_values("", SKILL_DIR, version, downloads)
+    spss_vals, spss_sum = _zip_values("SPSS_", SPSS_SKILL_DIR, version, downloads)
+    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum, encoding="utf-8")
 
     values = {
         "VERSION": version,
-        "SKILL_ZIP": zip_name,
-        "SKILL_SIZE": human_size(len(data)),
-        "SKILL_SHA256": sha,
+        **stata_vals,
+        **spss_vals,
         "BUILD_DATE": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "REPO_URL": REPO_URL,
     }
-    html = (SITE_SRC / "index.html").read_text(encoding="utf-8")
-    for key, value in values.items():
-        html = html.replace("{{" + key + "}}", value)
-    leftover = re.findall(r"\{\{[A-Z_]+\}\}", html)
-    if leftover:
-        raise SystemExit(f"채우지 못한 자리표시자: {sorted(set(leftover))}")
-    (out / "index.html").write_text(html, encoding="utf-8")
+    for page in PAGES:
+        html = (SITE_SRC / page).read_text(encoding="utf-8")
+        for key, value in values.items():
+            html = html.replace("{{" + key + "}}", value)
+        leftover = re.findall(r"\{\{[A-Z_]+\}\}", html)
+        if leftover:
+            raise SystemExit(f"{page}: 채우지 못한 자리표시자 {sorted(set(leftover))}")
+        (out / page).write_text(html, encoding="utf-8")
+    for asset in ASSETS:
+        shutil.copy2(SITE_SRC / asset, out / asset)
     (out / ".nojekyll").write_text("", encoding="utf-8")
     return values
 
@@ -89,7 +101,8 @@ def main() -> None:
     parser.add_argument("--out", default=str(ROOT / "_site"))
     args = parser.parse_args()
     values = build(Path(args.out))
-    print(f"빌드 완료: {args.out} (v{values['VERSION']}, {values['SKILL_ZIP']} {values['SKILL_SIZE']})")
+    print(f"빌드 완료: {args.out} (v{values['VERSION']}, {values['SKILL_ZIP']} {values['SKILL_SIZE']}, "
+          f"{values['SPSS_SKILL_ZIP']} {values['SPSS_SKILL_SIZE']})")
 
 
 if __name__ == "__main__":

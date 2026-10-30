@@ -253,3 +253,8 @@ spss-agent configure --clients claude-code --dry-run
 - [ ] `spss.Cursor`·변수 정보 함수 동작(대용량 자료 처리 시간 포함)
 - [ ] .sps(BOM 포함 UTF-8) 한국어 주석·값 라벨 처리, `INSERT ... SYNTAX=INTERACTIVE ERROR=STOP` 동작
 - [ ] OMS DOC·XLSX 내보내기 파일 생성
+
+### 10.7 설명서 사이트 SPSS 페이지 (2026-10-30)
+- `site/spss.html`(SPSS 안내) 추가, `index.html`과 상단 "사용하는 프로그램: Stata / SPSS" 전환으로 연결, 공용 스타일 `site/style.css`
+- 다운로드: SPSS 분석 스킬 ZIP(`spss-analysis-버전.zip`, 확인값 게시), 설치 프로그램은 "준비 중"
+- 페이지에 [미확인]으로 남긴 내용: 지원 SPSS 버전 범위, 재현 기능의 동시 실행 라이선스 영향, SPSS 본체의 SEM 미지원(일반 지식)

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPSS 에이전트 설치 안내</title>
+<meta name="description" content="채팅으로 SPSS 분석을 요청하고 계산은 내 PC의 SPSS가 하는 SPSS 에이전트의 설치·사용 안내와 다운로드.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f4e8c'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'%3ES%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="목차">
+  <div class="wrap">
+    <a class="brand" href="#top">SPSS 에이전트</a>
+    <a href="#how">작동 방식</a>
+    <a href="#ready">준비물</a>
+    <a href="#download">다운로드</a>
+    <a href="#start">시작하기</a>
+    <a href="#first">첫 분석</a>
+    <a href="#check">연결 점검</a>
+    <a href="#protect">자료 보호</a>
+    <a href="#faq">자주 묻는 질문</a>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+<header class="hero">
+  <div class="switch" role="navigation" aria-label="프로그램 선택">사용하는 프로그램
+    <span class="seg"><a href="index.html">Stata</a><a href="spss.html" aria-current="page">SPSS</a></span>
+  </div>
+  <h1 style="margin-top:18px">채팅으로 요청하면,<br>계산은 내 PC의 SPSS가 합니다</h1>
+  <p class="lead">Claude 또는 ChatGPT(Codex)에게 분석을 말로 요청하면 AI가 SPSS 문법(.sps)을 쓰고, 연구자가 승인하면 SPSS가 계산하고, AI가 출력을 읽어 검증·해석까지 돕는 도구.</p>
+  <div class="status" role="note">
+    <span aria-hidden="true">⚠️</span>
+    <div><b>개발 미리보기 v{{VERSION}}</b> — <b>설치 프로그램은 준비 중</b>이며 SPSS 연결은 <b>실제 SPSS 환경 시험 전</b>. 지금은 준비물 확인과 SPSS 분석 스킬 받기까지 가능.</div>
+  </div>
+  <div class="cta">
+    <a class="btn" href="#download">무엇을 받나요?</a>
+    <a class="btn ghost" href="#start">시작하기 순서 보기</a>
+  </div>
+</header>
+
+<section id="how">
+  <h2>작동 방식</h2>
+  <p class="sub">AI는 문법 작성과 출력 판독만 하고, 모든 통계량은 SPSS가 계산함.</p>
+  <div class="flow">
+    <div><b>채팅으로 요청</b><span class="who">연구자</span><br>“성별에 따른 만족도 차이를 t검정해줘”</div>
+    <div><b>문법 작성</b><span class="who">AI</span><br>.sps 파일에 섹션 단위로 SPSS 문법 작성</div>
+    <div><b>승인 후 계산</b><span class="who">연구자 → SPSS</span><br>승인하면 내 PC의 SPSS가 화면 없이 실행</div>
+    <div><b>검증·해석</b><span class="who">AI</span><br>출력을 읽고 가정 위배를 점검, 수정안·해석 제시</div>
+  </div>
+  <ul>
+    <li><b>SPSS 창은 뜨지 않음</b> — 결과는 출력 파일(<code>output/logs</code>)로 남고, AI가 읽어서 설명함.</li>
+    <li>같은 .sps 파일을 연구자가 SPSS에서 직접 열어 실행해 볼 수 있음.</li>
+  </ul>
+  <p class="note">개별 사례 값(자료의 행)은 AI로 보내지 않음. 요약통계·검정 결과만 전달됨 → <a href="#protect">자료 보호 원칙</a></p>
+</section>
+
+<section id="ready">
+  <h2>준비물</h2>
+  <p class="sub">세 가지만 있으면 됨. 프로그래밍 도구는 따로 설치하지 않음(설치 프로그램 공개 기준).</p>
+  <div class="checklist">
+    <div><b>① Windows PC</b>Windows 10 또는 11.</div>
+    <div><b>② 설치된 IBM SPSS Statistics</b>라이선스가 유효해야 함. SPSS에 포함된 Python 연동 기능을 사용함. 지원 버전 범위는 실제 시험 후 안내.</div>
+    <div><b>③ 유료 요금제 1개</b><b style="display:inline;font-weight:600">Claude Pro</b> 또는 <b style="display:inline;font-weight:600">ChatGPT Plus</b> 중 하나.</div>
+  </div>
+</section>
+
+<section id="download">
+  <h2>다운로드</h2>
+  <p class="sub">받을 파일은 최종적으로 설치 프로그램 1개. 현재 받을 수 있는 것은 SPSS 분석 스킬 파일뿐임.</p>
+  <div class="dl">
+    <article>
+      <div class="head">
+        <div><h3>통합 설치 프로그램</h3><div class="file">StataAgentSetup.exe (SPSS 연결 포함 예정)</div></div>
+        <span class="chip wait">준비 중</span>
+      </div>
+      <p>SPSS 연결 설정, Claude·Codex 앱 연결, 예제 폴더 생성까지 한 번에 진행할 예정.</p>
+      <a class="btn" aria-disabled="true" role="link" tabindex="-1">실제 SPSS 환경 시험 후 공개 예정</a>
+    </article>
+    <article>
+      <div class="head">
+        <div><h3>SPSS 분석 스킬</h3><div class="file">{{SPSS_SKILL_ZIP}}</div></div>
+        <span class="chip ok">지금 받기 가능</span>
+      </div>
+      <p>AI에게 SPSS 분석 절차(승인 → 실행 → 검증 → 해석, 기법별 점검표)를 알려 주는 지침 묶음. Claude 앱에는 <a href="#start">시작하기</a>의 방법으로 한 번 올림.</p>
+      <p class="note">스킬만으로는 SPSS에 연결되지 않음 → 설치 프로그램 공개 후 함께 사용.</p>
+      <a class="btn" href="downloads/{{SPSS_SKILL_ZIP}}" download>SPSS 스킬 받기 ({{SPSS_SKILL_SIZE}})</a>
+      <details>
+        <summary>파일 확인값(SHA-256)</summary>
+        <p class="meta">받은 파일이 원본과 같은지 확인하는 값. 필요한 경우에만 확인.</p>
+        <p class="meta"><code>{{SPSS_SKILL_SHA256}}</code></p>
+      </details>
+    </article>
+  </div>
+</section>
+
+<section id="start">
+  <h2>시작하기</h2>
+  <p class="sub">쓰는 요금제를 고르면 해당 순서가 보임.</p>
+  <div class="tabs">
+    <input type="radio" name="plan" id="t-claude" checked>
+    <input type="radio" name="plan" id="t-codex">
+    <div class="tabbar" role="tablist">
+      <label for="t-claude" role="tab">Claude Pro</label>
+      <label for="t-codex" role="tab">ChatGPT Plus</label>
+    </div>
+
+    <div class="panel" id="p-claude">
+      <ol class="steps">
+        <li><b class="t">Claude 데스크톱 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
+          <p><a href="https://claude.com/download">claude.com/download</a>에서 Windows용 앱을 받아 설치하고 Pro 계정으로 로그인.</p></li>
+        <li><b class="t">코드 실행 기능 켜기</b> <span class="chip ok">지금 가능</span>
+          <div class="path"><span>Settings</span><i>›</i><span>Capabilities</span><i>›</i><span>Create and edit files</span><i>켜기</i></div>
+          <p class="note">스킬을 쓰려면 필요함(Claude 공식 안내). 메뉴 이름은 앱 버전에 따라 “Code execution and file creation”으로 보일 수 있음.</p></li>
+        <li><b class="t">SPSS 분석 스킬 올리기</b> <span class="chip ok">지금 가능</span>
+          <p>위 <a href="#download">다운로드</a>에서 받은 ZIP 파일을 압축 풀지 말고 그대로 올림.</p>
+          <div class="path"><span>Customize</span><i>›</i><span>Skills</span><i>›</i><span>+</span><i>›</i><span>+ Create skill</span><i>›</i><span>Upload a skill</span></div></li>
+        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
+          <p>설치 프로그램 실행 → 다음 → 완료. SPSS 연결과 Claude 앱 연결이 자동으로 설정됨.</p></li>
+        <li><b class="t">Claude 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span>
+          <p>창만 닫지 말고 작업 표시줄 아이콘에서 종료. 설정을 다시 읽어야 연결됨.</p></li>
+        <li><b class="t">채팅에 “SPSS 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+          <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
+      </ol>
+    </div>
+
+    <div class="panel" id="p-codex">
+      <ol class="steps">
+        <li><b class="t">Codex 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
+          <p>Microsoft Store에서 “Codex”를 찾아 설치하고 ChatGPT Plus 계정으로 로그인.</p>
+          <p class="note">OpenAI 공식 안내: <a href="https://developers.openai.com/codex/app">developers.openai.com/codex/app</a></p></li>
+        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
+          <p>설치 프로그램 실행 → 다음 → 완료. Codex 설정과 SPSS 분석 스킬이 자동으로 들어감(따로 올릴 필요 없음).</p></li>
+        <li><b class="t">Codex 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span></li>
+        <li><b class="t">채팅에 “SPSS 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+          <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="first">
+  <h2>첫 분석 해 보기</h2>
+  <p class="sub">본인 자료(.sav)를 프로젝트의 <code>data</code> 폴더에 넣고 시작. 설치 프로그램 공개 후 사용 가능.</p>
+  <div class="chat">
+    <div class="msg me">data 폴더의 survey.sav 열고 변수 구조 보여줘</div>
+    <div class="msg ai">자료를 불러왔습니다(사례 수·변수 수). 변수 이름·라벨·결측 비율을 정리했습니다.<small>사례 값은 보지 않음</small></div>
+    <div class="msg me">성별에 따른 만족도 차이를 t검정해줘</div>
+    <div class="msg ai">02_ttest.sps에 T-TEST 섹션을 작성했습니다. 실행할까요?<small>승인 창 → “허용” 클릭</small></div>
+    <div class="msg me">등분산 가정 확인하고 결과 해석해줘</div>
+    <div class="msg ai">Levene 검정 결과를 보고 해당하는 행의 t값·p값을 출력에서 그대로 인용해 해석합니다.</div>
+    <div class="msg me">결과표 Word로 만들어줘</div>
+    <div class="msg ai">output/tables 폴더에 표를 저장했습니다.</div>
+  </div>
+  <ul>
+    <li>모든 분석은 .sps 파일로 남고, <code>00_master.sps</code>로 전체를 다시 실행할 수 있음.</li>
+    <li>SPSS에는 Stata의 저장결과(r()·e()) 같은 기능이 없어 해석 수치는 출력 표에서 인용함.</li>
+  </ul>
+</section>
+
+<section id="check">
+  <h2>연결 점검</h2>
+  <p class="sub">문제가 생기면 채팅에 <b>“SPSS 연결 점검해줘”</b>라고 입력. 문법 안에서 만든 예제 숫자(1~10)만 쓰며 내 자료는 쓰지 않음.</p>
+  <table class="tbl">
+    <thead><tr><th>항목</th><th>무엇을 확인하나</th></tr></thead>
+    <tbody>
+      <tr><td>T1</td><td>SPSS 설치와 Python 연동 기능</td></tr>
+      <tr><td>T2</td><td>AI가 SPSS를 화면 없이 띄울 수 있는지</td></tr>
+      <tr><td>T3</td><td>앞서 만든 자료가 다음 요청에서도 유지되는지</td></tr>
+      <tr><td>T4</td><td>계산 결과가 기준값과 일치하는지</td></tr>
+      <tr><td>T5</td><td>AI가 출력 파일을 제대로 받는지</td></tr>
+      <tr><td>T6</td><td>사례 값을 보여 주는 명령이 차단되는지</td></tr>
+      <tr><td>T7</td><td>문법 파일 섹션 편집이 제대로 되는지</td></tr>
+      <tr><td>T8</td><td>파일을 저장할 수 있는지</td></tr>
+      <tr><td>T9</td><td>새로 띄운 SPSS에서 다시 돌려도 결과가 같은지</td></tr>
+      <tr><td>T10</td><td>최신 버전인지</td></tr>
+    </tbody>
+  </table>
+  <p class="note">점검이 끝나면 <code>문서\StataAgent\점검보고서_날짜.html</code>이 만들어짐. 자료 경로·변수명·출력 원문은 들어가지 않음.</p>
+</section>
+
+<section id="protect">
+  <h2>자료 보호 원칙</h2>
+  <p class="sub">AI가 실수로라도 원자료를 보지 않도록 설계함. 원칙은 Stata판과 같음.</p>
+  <div class="principles">
+    <div><b>계산은 SPSS가</b>AI는 수치를 직접 계산하지 않고, 출력에 나온 값만 인용함.</div>
+    <div><b>원자료는 AI로 보내지 않음</b>자료 구조는 변수 이름·라벨·결측 수만 확인.</div>
+    <div><b>실행 전 연구자 승인</b>문법을 실행하거나 파일을 바꾸는 작업은 매번 승인 창이 뜸.</div>
+    <div><b>항상 재현 가능</b>모든 분석이 .sps로 남아 새 SPSS에서 다시 실행해 결과를 대조함.</div>
+  </div>
+  <h3>차단되는 것과 보내지는 것</h3>
+  <ul>
+    <li><b>차단</b>: 사례 값 출력(LIST·PRINT·목록형 SUMMARIZE), 운영체제 명령(HOST), 파일 삭제(ERASE), Python·R 코드 실행(BEGIN PROGRAM), 프로젝트 폴더 밖으로 저장, 원자료 폴더(data) 덮어쓰기.</li>
+    <li><b>확인 후 실행</b>: 고유값이 대부분인 변수(아이디 등)의 빈도표·집단별 요약, 자료 파일 내보내기 등은 이유를 설명하고 연구자 동의를 받은 뒤에만 실행.</li>
+    <li><b>AI로 보내지는 것</b>: 요약통계, 검정 결과, 변수 이름·라벨 같은 자료 구조 정보.</li>
+  </ul>
+  <p class="note">이 장치는 사고를 막기 위한 안전장치이며 완전한 보안 장치는 아님. 행정자료·민감자료는 기관의 반출 기준과 승인 절차를 함께 따를 것.</p>
+</section>
+
+<section id="faq">
+  <h2>자주 묻는 질문</h2>
+  <details>
+    <summary>SPSS 창이 안 뜨는데 정상인가요?</summary>
+    <p>정상임. SPSS를 화면 없이 실행하는 방식이라 창이 뜨지 않음. 결과는 프로젝트의 <code>output/logs</code> 폴더에 남고, 같은 .sps 파일을 SPSS에서 직접 열어 실행해 볼 수 있음.</p>
+  </details>
+  <details>
+    <summary>설치 프로그램은 언제 나오나요?</summary>
+    <p>실제 SPSS와 Claude·Codex 앱에서 연결 시험을 마친 뒤 공개함. 공개되면 이 페이지의 다운로드 칸에 버튼이 생김.</p>
+  </details>
+  <details>
+    <summary>“차단됨”이라는 메시지가 나왔어요</summary>
+    <p>사례 값이 AI로 넘어갈 수 있는 명령이 막힌 것임. AI가 요약통계 등 다른 방법으로 바꿔 제안함. 꼭 사례를 봐야 하면 연구자가 SPSS에서 직접 실행.</p>
+  </details>
+  <details>
+    <summary>오래 걸리는 분석은?</summary>
+    <p>요청 하나당 기본 15분(900초) 제한이 있음. 넘으면 SPSS가 종료되고 열어 둔 자료가 사라지므로, 자료 불러오기부터 다시 실행함.</p>
+  </details>
+  <details>
+    <summary>구조방정식(SEM)도 되나요?</summary>
+    <p>SPSS Statistics 본체에는 구조방정식 명령이 없고 AMOS 등 별도 제품이 필요한 것으로 알려져 있음. 이 도구는 현재 SPSS Statistics 문법만 다룸.</p>
+  </details>
+  <details>
+    <summary>라이선스 관련 주의할 점이 있나요?</summary>
+    <p>“다시 실행해 결과 대조” 기능은 SPSS를 하나 더 띄움. 기관 라이선스가 동시 실행을 제한하면 이 기능이 실패할 수 있음(실제 시험 전).</p>
+  </details>
+</section>
+
+<section id="report">
+  <h2>오류 알리기</h2>
+  <p>연결 점검에서 만들어진 <b>점검 보고서 파일만</b> 첨부해 <a href="https://github.com/beaver21c/stata_connect/issues/new">오류 알리기</a>에 올림. 분석 출력 원문, 자료 파일 경로, 변수 값은 올리지 않음.</p>
+  <details>
+    <summary>개발자용: 현재 개발판 설치 방법</summary>
+    <p class="note">명령줄 사용이 필요한 개발·시험용 경로이며 일반 사용자는 설치 프로그램 공개를 기다리면 됨. 자세한 내용은 <a href="{{REPO_URL}}">소스 저장소</a>의 README와 docs/IMPLEMENTATION_STATUS.md §10 참조.</p>
+  </details>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    SPSS 에이전트 v{{VERSION}} · 개발 미리보기 · 페이지 갱신 {{BUILD_DATE}}<br>
+    IBM SPSS Statistics는 IBM Corp.의 등록상표이며, 이 도구는 IBM·Anthropic·OpenAI와 관련 없는 독립 프로젝트임.
+  </div>
+</footer>
+</body>
+</html>
