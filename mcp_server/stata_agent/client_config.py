@@ -27,6 +27,22 @@ from .tool_specs import APPROVAL_TOOLS, READ_ONLY_TOOLS, SERVER_NAME, client_too
 SKILL_NAME = "stata-analysis"
 
 
+@dataclass(frozen=True)
+class ClientProfile:
+    """클라이언트에 등록할 MCP 서버 묶음(패키지별: Stata·SPSS)."""
+
+    server_name: str
+    skill_name: str
+    read_only_tools: tuple[str, ...]
+    approval_tools: tuple[str, ...]
+
+    def tool_id(self, tool: str) -> str:
+        return f"mcp__{self.server_name}__{tool}"
+
+
+STATA_PROFILE = ClientProfile(SERVER_NAME, SKILL_NAME, tuple(READ_ONLY_TOOLS), tuple(APPROVAL_TOOLS))
+
+
 @dataclass
 class Change:
     target: str
@@ -85,7 +101,8 @@ def merge_desktop_config(config_path: Path, server: ServerCommand, name: str = S
     return Change(str(config_path), action, f"mcpServers.{name} 기록", bak)
 
 
-def merge_claude_permissions(settings_path: Path, dry_run: bool = False) -> Change:
+def merge_claude_permissions(settings_path: Path, dry_run: bool = False,
+                             profile: ClientProfile = STATA_PROFILE) -> Change:
     data: dict = {}
     if settings_path.is_file():
         try:
@@ -94,10 +111,10 @@ def merge_claude_permissions(settings_path: Path, dry_run: bool = False) -> Chan
             return Change(str(settings_path), "error", f"JSON 해석 실패: {e}")
     perms = data.setdefault("permissions", {})
     before = json.dumps(perms, sort_keys=True)
-    for key, names in (("allow", READ_ONLY_TOOLS), ("ask", APPROVAL_TOOLS)):
+    for key, names in (("allow", profile.read_only_tools), ("ask", profile.approval_tools)):
         current = list(perms.get(key, []))
         for n in names:
-            rule = client_tool_id(n)
+            rule = profile.tool_id(n)
             if rule not in current:
                 current.append(rule)
         perms[key] = current
@@ -120,7 +137,8 @@ def _toml_str(value: str) -> str:
 
 
 def render_codex_block(server: ServerCommand, name: str = SERVER_NAME,
-                       startup_timeout: float = 60.0, tool_timeout: float = 900.0) -> str:
+                       startup_timeout: float = 60.0, tool_timeout: float = 900.0,
+                       read_only_tools: tuple[str, ...] | None = None) -> str:
     lines = [
         f"[mcp_servers.{name}]",
         f"command = {_toml_str(server.command)}",
@@ -133,7 +151,7 @@ def render_codex_block(server: ServerCommand, name: str = SERVER_NAME,
         lines.append("")
         lines.append(f"[mcp_servers.{name}.env]")
         lines += [f"{k} = {_toml_str(v)}" for k, v in server.env.items()]
-    for tool in READ_ONLY_TOOLS:
+    for tool in (READ_ONLY_TOOLS if read_only_tools is None else read_only_tools):
         lines.append("")
         lines.append(f"[mcp_servers.{name}.tools.{tool}]")
         lines.append('approval_mode = "approve"')
@@ -161,10 +179,10 @@ def remove_codex_block(text: str, name: str = SERVER_NAME) -> tuple[str, bool]:
 
 
 def merge_codex_config(config_path: Path, server: ServerCommand, name: str = SERVER_NAME,
-                       dry_run: bool = False) -> Change:
+                       dry_run: bool = False, read_only_tools: tuple[str, ...] | None = None) -> Change:
     original = config_path.read_text(encoding="utf-8") if config_path.is_file() else ""
     stripped, existed = remove_codex_block(original, name)
-    block = render_codex_block(server, name)
+    block = render_codex_block(server, name, read_only_tools=read_only_tools)
     new_text = (stripped + ("\n" if stripped else "") + block) if stripped else block
     if new_text == original:
         return Change(str(config_path), "unchanged")
@@ -186,8 +204,8 @@ def merge_codex_config(config_path: Path, server: ServerCommand, name: str = SER
 
 # ── 스킬 복사 ────────────────────────────────────────────────────
 
-def install_skill(src: Path, dest_root: Path, dry_run: bool = False) -> Change:
-    dest = dest_root / SKILL_NAME
+def install_skill(src: Path, dest_root: Path, dry_run: bool = False, skill_name: str = SKILL_NAME) -> Change:
+    dest = dest_root / skill_name
     if not (src / "SKILL.md").is_file():
         return Change(str(dest), "error", f"원본 스킬 없음: {src}")
     if dry_run:
@@ -234,12 +252,14 @@ def register_claude_code(server: ServerCommand, name: str = SERVER_NAME, dry_run
 
 
 def configure_all(server: ServerCommand, skill_src: Path, clients: list[str],
-                  dry_run: bool = False, force_desktop: bool = False) -> list[Change]:
+                  dry_run: bool = False, force_desktop: bool = False,
+                  profile: ClientProfile = STATA_PROFILE) -> list[Change]:
     changes: list[Change] = []
+    name = profile.server_name
     if "claude-code" in clients:
-        changes.append(register_claude_code(server, dry_run=dry_run))
-        changes.append(merge_claude_permissions(Path.home() / ".claude" / "settings.json", dry_run))
-        changes.append(install_skill(skill_src, Path.home() / ".claude" / "skills", dry_run))
+        changes.append(register_claude_code(server, name=name, dry_run=dry_run))
+        changes.append(merge_claude_permissions(Path.home() / ".claude" / "settings.json", dry_run, profile))
+        changes.append(install_skill(skill_src, Path.home() / ".claude" / "skills", dry_run, profile.skill_name))
     if "claude-desktop" in clients:
         path = claude_desktop_config_path()
         if path is None:
@@ -247,8 +267,9 @@ def configure_all(server: ServerCommand, skill_src: Path, clients: list[str],
         elif not path.parent.is_dir() and not force_desktop:
             changes.append(Change(str(path), "skipped", "Claude Desktop 설정 폴더 없음(미설치 또는 경로 상이) → --force-desktop으로 강제"))
         else:
-            changes.append(merge_desktop_config(path, server, dry_run=dry_run))
+            changes.append(merge_desktop_config(path, server, name=name, dry_run=dry_run))
     if "codex" in clients:
-        changes.append(merge_codex_config(codex_home() / "config.toml", server, dry_run=dry_run))
-        changes.append(install_skill(skill_src, Path.home() / ".agents" / "skills", dry_run))
+        changes.append(merge_codex_config(codex_home() / "config.toml", server, name=name, dry_run=dry_run,
+                                          read_only_tools=profile.read_only_tools))
+        changes.append(install_skill(skill_src, Path.home() / ".agents" / "skills", dry_run, profile.skill_name))
     return changes

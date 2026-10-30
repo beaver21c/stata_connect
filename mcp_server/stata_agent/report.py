@@ -25,6 +25,7 @@ def sanitize(text: str) -> str:
 
 
 def render_report(results: list[TestResult], meta: dict) -> str:
+    """meta["software"](기본 "Stata")와 meta["software_info"](없으면 meta["stata"])로 패키지별 표기."""
     rows = []
     for r in results:
         label, cls = _STATUS.get(r.status, (r.status, "muted"))
@@ -32,13 +33,14 @@ def render_report(results: list[TestResult], meta: dict) -> str:
             f"<tr><td>{r.id}</td><td>{html.escape(r.name)}</td><td class='{cls}'>{label}</td>"
             f"<td>{html.escape(sanitize(r.detail))}</td><td>{html.escape(r.remedy)}</td></tr>"
         )
-    stata = meta.get("stata") or {}
+    software = meta.get("software") or "Stata"
+    stata = meta.get("software_info") or meta.get("stata") or {}
     info = [
         ("작성 시각", datetime.now().strftime("%Y-%m-%d %H:%M")),
         ("앱", meta.get("client")),
         ("MCP 서버 버전", meta.get("server_version")),
         ("백엔드", meta.get("backend")),
-        ("Stata", f"{stata.get('edition') or '?'} {stata.get('version') or '?'}"),
+        (software, f"{stata.get('edition') or ''} {stata.get('version') or '?'}".strip()),
         ("라이선스 유효", {True: "예", False: "아니오", None: "미확인"}.get(stata.get("license_valid"))),
         ("라이선스 만료일", stata.get("expires") or "영구 또는 미확인"),
         ("운영체제", meta.get("os")),
@@ -47,7 +49,7 @@ def render_report(results: list[TestResult], meta: dict) -> str:
     fails = [r.id for r in results if r.status == "fail"]
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stata 에이전트 점검 보고서</title>
+<title>{html.escape(software)} 에이전트 점검 보고서</title>
 <style>
 :root{{--bg:#fff;--fg:#1d2330;--muted:#5b6474;--line:#d9dee7;--soft:#f4f6f9;--ok:#1d7a46;--warn:#a15c00;--bad:#a11d2f}}
 @media (prefers-color-scheme: dark){{:root{{--bg:#14171c;--fg:#e4e8ee;--muted:#9aa3b2;--line:#2c323c;--soft:#1c2027;--ok:#6fcf97;--warn:#f2b45c;--bad:#f08a96}}}}
@@ -58,7 +60,7 @@ th,td{{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-ali
 th{{background:var(--soft)}} .ok{{color:var(--ok)}} .warn{{color:var(--warn)}} .bad{{color:var(--bad)}} .muted{{color:var(--muted)}}
 p.note{{color:var(--muted);font-size:13px}}
 </style></head><body><main>
-<h1>Stata 에이전트 점검 보고서</h1>
+<h1>{html.escape(software)} 에이전트 점검 보고서</h1>
 <p class="note">오류 보고 시 이 파일만 첨부. 라이선스 일련번호·등록자, 자료 경로·변수명·분석 로그 원문은 포함하지 않음.</p>
 <table>{info_rows}</table>
 <h2>점검 결과 (T1~T10)</h2>

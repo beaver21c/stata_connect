@@ -2,6 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -186,3 +187,69 @@ stata-agent selftest --client "Claude Code"
 10. `about` 출력 형식 예시(공개 저장소 로그): https://github.com/remlapmot/ivonesamplemr/blob/b932d68ce77df394e4422cd01c95e4ee707dfa51/cscripts/install.log
 11. Anthropic. (n.d.). *Use skills in Claude*. Claude Help Center. https://support.claude.com/en/articles/12512180-use-skills-in-claude (직접 열람)
 12. Stata Journal (2006), 6(2) 수록 글(저자·제목 미확인, `display` 변수명 동작 서술): https://journals.sagepub.com/doi/pdf/10.1177/1536867X0600600209
+13. Narçiçek, M. R. (2026). *spss-mcp-extended* (Version 2.0.0) [Software]. PyPI. https://pypi.org/project/spss-mcp-extended/ (휠 소스 직접 열람, 코드 미사용·사실 확인용)
+
+## 10. SPSS 어댑터 (2026-10-30)
+
+### 10.1 결정
+- 대상: IBM SPSS Statistics, **화면 없이 실행**(사용자 결정)
+- 엔진: **자체 작성**(사용자 결정). 제3자 `spss-mcp-extended`는 사례 값을 AI에 반환하는 도구(`spss_read_data`, 최대 50행 표)가 있고 배포 1회·의존성 다수라 래퍼로 쓰지 않음 [1차 확인: 2.0.0 휠 소스]
+- 구조: 같은 저장소의 별도 패키지 `mcp_server/spss_agent/`(MCP 서버 이름 `spss`). 사용 기록·보고서·클라이언트 설정 병합·로그 대조는 Stata 패키지 모듈을 일반화해 공유
+
+### 10.2 구현 대응
+| 구성 | 파일 | 상태 |
+|---|---|---|
+| 엔진(SPSS 내장 Python 서브프로세스, JSON 줄 통신, OMS 텍스트 수집, 사전·고유값 조회) | `engine_script.py`, `engine.py` | 구현. 가짜 `spss` 모듈로 서브프로세스 통신·오류·시간 초과·재기동까지 테스트 / **실제 SPSS 미검증** |
+| 설치 탐지 | `discovery.py` | 구현·테스트(임시 폴더) / 실제 설치 미검증 |
+| 문법 guard(S01~S15) | `guard/policy.py` | 구현·차단/허용/승인 사례 테스트 |
+| 출력 필터 | `guard/output_filter.py` | 구현(합성 출력 기준) / **OMS TEXT 실제 형식 미확인** |
+| .sps 규약·00_master.sps | `syntaxfile.py`, `project.py` | 구현·테스트 |
+| 도구 13종·서비스·MCP 서버 | `tool_specs.py`, `service.py`, `server.py` | 구현·테스트, Claude Code CLI stdio 연결 `Connected` [1차 확인] |
+| 자가 점검 T1~T10 | `selftest.py` | 가짜 엔진으로 전 항목 통과 / 실기 미검증 |
+| 스킬 | `skills/spss-analysis/` | 작성, 템플릿 동기화 테스트 |
+| 명령줄 | `spss-agent`(doctor·selftest·init-project·configure·render-templates·serve) | 구현 |
+
+### 10.3 확인한 사실과 지위
+- SPSS 내장 Python(`<설치폴더>\Python3\python.exe`)에서 `import spss` → `spss.StartSPSS()` → `spss.Submit(문법 문자열)` → `spss.GetLastErrorLevel()` → `spss.StopSPSS()` 흐름, SPSS가 표준출력에 잡음을 내므로 파일로 응답 [2차 확인: 제3자 구현 소스]
+- 출력 수집 `OMS /TAG=... /SELECT ALL /DESTINATION FORMAT=TEXT OUTFILE='...'.` ~ `OMSEND TAG=...` [2차 확인: 제3자 구현 소스]
+- 설치 경로 `Program Files\IBM\SPSS Statistics\<버전>\stats.exe`, 레지스트리 `SOFTWARE\IBM\SPSS Statistics\<버전>`의 `InstallationDirectory` [2차 확인: 제3자 구현 소스]. 구버전 경로 `IBM\SPSS\Statistics\<버전>`은 [논리적 추론]
+- external mode는 일반 사용자 화면 없이 새 인스턴스로 동작 [2차 확인: IBM Community 게시글]
+- `spss.GetVariableName·GetVariableLabel·GetVariableType·GetVariableFormat·GetVariableMeasurementLevel·GetCaseCount`, `spss.Cursor(...).fetchall()` [미확인: IBM 원문 미열람]
+- OMS 형식 `DOC·XLSX·HTML·PDF`(내보내기), `INSERT ... SYNTAX=INTERACTIVE ERROR=STOP`, 명령어 3글자 약어 허용 [미확인: 일반 지식]
+- 시험 중 결함 2건 발견·수정: BOM 포함 .sps를 INSERT로 불러올 때 첫 명령 미검사, 실패 명령의 오류 수준이 정리 명령에 덮어써짐
+
+### 10.4 Stata판과 다른 점
+| 항목 | Stata | SPSS |
+|---|---|---|
+| 실행 화면 | 가시 GUI(COM) | 화면 없음(엔진) |
+| 저장결과 조회 | `stata_get_results`(r()·e()) | 없음 → 출력 표에서 인용 |
+| 편집기 표시·실행 중단 | `stata_show_in_editor`·`stata_break` | 없음 |
+| 실행 시간 제한 | 명령당 180초(상류 고정) | 요청당 900초(`SPSS_AGENT_TIMEOUT`), 초과 시 엔진 종료·재기동 |
+| 재현 확인 | 배치 실행(`/e`) | 새 엔진에서 00_master.sps 목록 순서대로 재실행 |
+| 기록 폴더 | `.stata-agent/` | `.spss-agent/` |
+
+### 10.5 SPSS 원자료 보호 규칙
+| 규칙 | 대상 | 판정 |
+|---|---|---|
+| S01 | `LIST`, `PRINT`(FORMATS·SPACE·EJECT 제외), OUTFILE 없는 `WRITE`, 목록형 `SUMMARIZE`, MATRIX 안 `PRINT` / `REPORT` / `EXAMINE ... EXTREME` | 차단 / 승인 필요 / 경고 |
+| S04 | `BEGIN PROGRAM`(Python·R) / `MATRIX` | 차단 / 승인 필요 |
+| S05·S06 | `HOST` / `ERASE` / `PERMISSIONS` | 차단 / 차단 / 승인 필요 |
+| S07 | TAG 없는 `OMSEND` / 사용자 `OMS` | 차단 / 승인 필요 |
+| S09·S10 | `SAVE TRANSLATE`·`EXPORT`·`WRITE OUTFILE`(자료 반출), `SAVE`·`XSAVE`·`OUTPUT EXPORT/SAVE`: 프로젝트 밖·`data/` / 안(반출) / 파일 핸들 | 차단 / 승인 필요 / 승인 필요 |
+| S11·S12 | `CD` / 매크로 호출(`!`) / `DEFINE` | 승인 필요 / 승인 필요 / 경고 |
+| S14 | `FREQUENCIES`·`CROSSTABS`·`CTABLES`, `MEANS`·`EXAMINE ... BY` | 실행 전 고유값 점검(엔진이 개수만 계산) |
+| S15 | `INSERT`·`INCLUDE` | 하위 파일 재귀 검사 |
+
+### 10.6 SPSS 실기 검증 체크리스트 (Windows + SPSS)
+```powershell
+python -m pip install -e ".[dev]"
+spss-agent doctor
+spss-agent selftest --client "Claude Code"
+spss-agent configure --clients claude-code --dry-run
+```
+- [ ] 엔진 기동: SPSS 내장 Python 경로, 라이선스, 기동 시간(설계상 180초 제한)
+- [ ] T1~T10 통과, 특히 T4(출력 숫자 표시 형식)·T9(동시 2개 엔진 기동 라이선스)
+- [ ] OMS TEXT 실제 출력 형식 확보 → `tests/test_spss.py` 필터 사례를 실제 출력으로 교체(사례 목록 표 제목·빈도표 행 형태, 한국어 출력 언어 포함)
+- [ ] `spss.Cursor`·변수 정보 함수 동작(대용량 자료 처리 시간 포함)
+- [ ] .sps(BOM 포함 UTF-8) 한국어 주석·값 라벨 처리, `INSERT ... SYNTAX=INTERACTIVE ERROR=STOP` 동작
+- [ ] OMS DOC·XLSX 내보내기 파일 생성

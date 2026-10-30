@@ -8,8 +8,9 @@
 
 ## 규칙
 - 테스트: `python -m pytest -q` 통과 후 커밋. Stata 없이 도는 테스트는 `tests/fakes.py`의 가짜 백엔드 사용
-- 도구 추가·변경: `mcp_server/stata_agent/tool_specs.py`가 단일 원본 → `service.py`·`server.py dispatch`·`SKILL.md` 도구표 함께 수정(`tests/test_skill_and_templates.py`가 누락 검사)
-- 프로젝트 템플릿 변경: `project.py`·`dofile.py` 수정 후 `stata-agent render-templates` 실행(동기화 테스트 있음)
+- 도구 추가·변경: 패키지별 `tool_specs.py`(stata_agent·spss_agent)가 단일 원본 → `service.py`·`server.py dispatch`·해당 `SKILL.md` 도구표 함께 수정(테스트가 누락 검사)
+- SPSS 어댑터: `mcp_server/spss_agent/`. 엔진 통신 테스트는 `tests/fake_spss_home`의 가짜 `spss` 모듈 사용(실제 IBM 모듈 아님). 실기 검증 항목은 IMPLEMENTATION_STATUS §10.6
+- 프로젝트 템플릿 변경: `project.py`·`dofile.py`(SPSS는 `spss_agent/project.py`·`syntaxfile.py`) 수정 후 `stata-agent render-templates` / `spss-agent render-templates` 실행(동기화 테스트 있음)
 - 상류(stata-gui-mcp) 도구는 노출 금지. 상류 버전 변경 절차는 IMPLEMENTATION_STATUS §6
 - AI에게 반환하는 모든 Stata 출력은 `guard/output_filter.filter_output` 통과 필수. 사용 기록(`history.jsonl`)에 코드·값·로그 원문 기록 금지
 - 일련번호·등록자는 로컬 `stata-agent doctor` 화면에만 표시. 도구 반환·점검 보고서에 넣지 않음

@@ -1,6 +1,6 @@
-# stata_connect — Stata 에이전트 패키지
+# stata_connect — Stata·SPSS 에이전트 패키지
 
-채팅(Claude·Codex)으로 요청 → AI가 do-file 작성·수정 → **Stata가 계산** → AI가 로그를 판독·검증·해석하는 분석 환경.
+채팅(Claude·Codex)으로 요청 → AI가 do-file·SPSS 문법 작성·수정 → **Stata·SPSS가 계산** → AI가 결과를 판독·검증·해석하는 분석 환경.
 원자료 행은 AI로 보내지 않도록 명령 차단·출력 필터를 둠.
 
 - **사용자 설명서·다운로드: https://beaver21c.github.io/stata_connect/** (원본 `site/`, main 반영 시 자동 배포)
@@ -14,6 +14,7 @@
 | MCP 서버(도구 17종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
 | 사용자 설명서 사이트(GitHub Pages) + 분석 스킬 ZIP 다운로드 | 구현(설치 프로그램 칸은 "준비 중" 표시) |
+| **SPSS 어댑터**(화면 없는 SPSS 엔진, 도구 13종, 문법 guard, 자가 점검, 스킬) | 구현 + 자동 테스트(가짜 `spss` 모듈로 엔진 통신까지), **실제 SPSS 미검증** (IMPLEMENTATION_STATUS §10) |
 | 단일 exe·코드 서명·`.mcpb`·통합 설치 프로그램·Releases | 미착수(설계서 Phase 5) |
 
 ## 구조
@@ -34,7 +35,9 @@ stata_connect/
 │   ├── selftest.py · report.py  자가 점검 T1~T10·점검 보고서
 │   ├── client_config.py         Claude Code·Desktop·Codex 설정 병합
 │   └── cli.py                   stata-agent 명령
+├── mcp_server/spss_agent/       SPSS 어댑터(엔진·guard·서비스·MCP 서버 spss)
 ├── skills/stata-analysis/       SKILL.md·기법별 references·templates
+├── skills/spss-analysis/        SPSS용 스킬
 ├── installer/                   doctor.ps1·register_com.ps1·configure_clients.py
 ├── site/                        사용자 설명서 사이트(index.html·build.py)
 ├── docs/                        설계서·구현 현황
@@ -50,6 +53,12 @@ stata-agent doctor                     # Stata 설치·라이선스·COM 점검
 stata-agent init-project ./예제 --example
 stata-agent configure --clients claude-code,codex --dry-run
 stata-agent-mcp                        # MCP 서버(stdio)
+
+# SPSS
+spss-agent doctor                      # SPSS 설치·내장 Python 탐지
+spss-agent init-project ./spss예제 --example
+spss-agent configure --clients claude-code,codex --dry-run
+spss-agent-mcp                         # MCP 서버(stdio, 이름 spss)
 ```
 
 Windows에서 COM 대화형 세션을 쓰려면 Stata Automation 등록(관리자 1회) 필요:
