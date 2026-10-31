@@ -1,4 +1,4 @@
-"""SPSS 분석 프로젝트 폴더 규약·지침 파일. skills/spss-analysis/templates와 동기화(테스트로 검사)."""
+"""SPSS 분석 프로젝트 폴더 규약·지침 파일. plugins/spss-agent/skills/spss-analysis/templates와 동기화(테스트로 검사)."""
 
 from __future__ import annotations
 

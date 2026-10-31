@@ -4,7 +4,7 @@ spss-agent doctor            SPSS 설치·내장 Python 탐지
 spss-agent selftest          T1~T10 자가 점검 + 보고서
 spss-agent init-project DIR  규약 폴더 생성(--example: 예제 포함)
 spss-agent configure ...     Claude Code·Desktop·Codex에 spss 서버 등록(백업 후 병합)
-spss-agent render-templates  skills/spss-analysis/templates 갱신
+spss-agent render-templates  plugins/spss-agent/skills/spss-analysis/templates 갱신
 spss-agent serve             MCP 서버(stdio) = spss-agent-mcp
 """
 
@@ -67,7 +67,7 @@ def cmd_configure(args) -> int:
 
     command = args.command or shutil.which("spss-agent-mcp") or "spss-agent-mcp"
     env = dict(kv.split("=", 1) for kv in args.env or [])
-    skill_src = Path(args.skill_src) if args.skill_src else _repo_root() / "skills" / "spss-analysis"
+    skill_src = Path(args.skill_src) if args.skill_src else _repo_root() / "plugins" / "spss-agent" / "skills" / "spss-analysis"
     clients = [c.strip() for c in args.clients.split(",") if c.strip()]
     changes = configure_all(ServerCommand(command, [], env), skill_src, clients, args.dry_run, args.force_desktop,
                             profile=PROFILE)
@@ -82,7 +82,7 @@ def cmd_render_templates(args) -> int:
     from .project import rendered_templates
     from .syntaxfile import ENCODING
 
-    dest = Path(args.dest) if args.dest else _repo_root() / "skills" / "spss-analysis" / "templates"
+    dest = Path(args.dest) if args.dest else _repo_root() / "plugins" / "spss-agent" / "skills" / "spss-analysis" / "templates"
     dest.mkdir(parents=True, exist_ok=True)
     for name, content in rendered_templates().items():
         (dest / name).write_text(content, encoding=ENCODING if name.endswith(".sps") else "utf-8")

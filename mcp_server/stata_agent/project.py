@@ -1,6 +1,6 @@
 """프로젝트 폴더 규약(설계서 §10) 생성 + 프로젝트 지침 파일 렌더링.
 
-skills/stata-analysis/templates/ 의 파일은 이 모듈 출력과 같아야 함
+plugins/stata-agent/skills/stata-analysis/templates/ 의 파일은 이 모듈 출력과 같아야 함
 (tests/test_templates_sync.py가 검사, 갱신은 ``stata-agent render-templates``).
 """
 
@@ -42,15 +42,27 @@ PROJECT_INSTRUCTIONS = """\
 """
 
 
-def claude_settings() -> dict:
-    """프로젝트 ``.claude/settings.json`` — data/ 열람 차단 + 읽기 도구 자동 허용 + 실행 도구 확인."""
-    return {
+def claude_settings(hook: list[str] | None = None) -> dict:
+    """프로젝트 ``.claude/settings.json`` — data/ 열람 차단 + 읽기 도구 자동 허용 + 실행 도구 확인.
+
+    hook(실행파일 + 인자)이 있으면 셸 명령 실행 전 검사(hookguard)를 실행 형식(command+args)으로 등록.
+    Claude Code 공식 문서: Windows의 실행 형식은 command가 실제 .exe여야 함.
+    """
+    settings: dict = {
         "permissions": {
             "deny": ["Read(/data/**)", "Edit(/data/**)"],
             "allow": [client_tool_id(n) for n in READ_ONLY_TOOLS],
             "ask": [client_tool_id(n) for n in APPROVAL_TOOLS],
         }
     }
+    if hook:
+        settings["hooks"] = {
+            "PreToolUse": [
+                {"matcher": "Bash|PowerShell",
+                 "hooks": [{"type": "command", "command": hook[0], "args": list(hook[1:])}]}
+            ]
+        }
+    return settings
 
 
 EXAMPLE_SECTIONS = [
@@ -60,7 +72,8 @@ EXAMPLE_SECTIONS = [
 ]
 
 
-def init_project(root: Path, version_line: str, example: bool = False) -> list[str]:
+def init_project(root: Path, version_line: str, example: bool = False,
+                 hook: list[str] | None = None) -> list[str]:
     """규약 폴더·파일 생성. 기존 파일은 덮어쓰지 않음. 생성한 상대경로 목록 반환."""
     root = Path(root)
     created: list[str] = []
@@ -84,12 +97,12 @@ def init_project(root: Path, version_line: str, example: bool = False) -> list[s
         write_if_absent(MASTER_NAME, render_master([], version_line))
     write_if_absent("AGENTS.md", PROJECT_INSTRUCTIONS)
     write_if_absent("CLAUDE.md", PROJECT_INSTRUCTIONS)
-    write_if_absent(".claude/settings.json", json.dumps(claude_settings(), ensure_ascii=False, indent=2) + "\n")
+    write_if_absent(".claude/settings.json", json.dumps(claude_settings(hook), ensure_ascii=False, indent=2) + "\n")
     return created
 
 
 def rendered_templates(version_line: str = "version 19") -> dict[str, str]:
-    """skills/stata-analysis/templates/ 동기화용."""
+    """plugins/stata-agent/skills/stata-analysis/templates/ 동기화용."""
     return {
         "00_master.do": render_master(["01_describe.do"], version_line),
         "01_describe.do": new_dofile("01_describe.do", EXAMPLE_SECTIONS, version_line),

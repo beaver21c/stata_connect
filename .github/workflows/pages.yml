@@ -2,14 +2,18 @@ name: pages
 
 # 설명서 사이트(설계서 §0.6) 배포 → https://beaver21c.github.io/stata_connect/
 # 최초 1회: 저장소 Settings > Pages > Build and deployment > Source를 "GitHub Actions"로 지정해야 함
+# 배포 파일(실행파일·.mcpb)은 package-windows 작업이 Windows에서 빌드·점검한 결과를 그대로 사용
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
-      - "skills/**"
-      - "mcp_server/stata_agent/__init__.py"
+      - "plugins/**"
+      - "mcp_server/**"
+      - "packaging/**"
+      - "pyproject.toml"
       - ".github/workflows/pages.yml"
+      - ".github/workflows/package-windows.yml"
   workflow_dispatch:
 
 permissions:
@@ -22,15 +26,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  package:
+    uses: ./.github/workflows/package-windows.yml
+
   build:
+    needs: package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-package
+          path: binaries
       - name: Build site
-        run: python site/build.py --out _site
+        run: python site/build.py --out _site --binaries binaries
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

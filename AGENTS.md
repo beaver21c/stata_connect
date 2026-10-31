@@ -1,6 +1,6 @@
 # 개발 지침 (이 저장소를 수정하는 Claude Code·Codex용)
 
-> 분석 프로젝트용 지침은 `skills/stata-analysis/templates/AGENTS.md`(별도 파일)임. 이 파일은 저장소 개발 지침.
+> 분석 프로젝트용 지침은 `plugins/stata-agent/skills/stata-analysis/templates/AGENTS.md`(별도 파일)임. 이 파일은 저장소 개발 지침.
 
 ## 먼저 읽을 것
 1. `docs/design/stata_agent_design.html` — 설계서 원문(수정 금지)
@@ -16,6 +16,10 @@
 - 일련번호·등록자는 로컬 `stata-agent doctor` 화면에만 표시. 도구 반환·점검 보고서에 넣지 않음
 - 문서·주석은 한국어 보고서체. 확인되지 않은 사실은 [미확인] 등 지위 표기
 - PowerShell 스크립트는 UTF-8 BOM으로 저장(Windows PowerShell 5.1 한글 처리)
+- 배포 구성(IMPLEMENTATION_STATUS §11): 단일 실행파일·`.mcpb`는 `packaging/build.py`(manifest 도구 목록은 `tool_specs`에서 생성), 점검은 `packaging/smoke_test.py`(CI `package-windows`). 스킬 원본은 `plugins/<플러그인>/skills/<스킬>/`
+- 버전 올릴 때: `mcp_server/stata_agent/__init__.py`와 `plugins/*/.claude-plugin/plugin.json`의 version을 함께 수정(테스트가 일치 검사)
+- 플러그인 검사: `claude plugin validate .`·`claude plugin validate ./plugins/stata-agent`. 플러그인에 MCP 서버·최상위 `bin/`을 넣지 않음(도구 이름 변경·claude.ai 설치 불가)
+- 지원 Stata 범위: 17 이상(`discovery.MIN_SUPPORTED_MAJOR`). 18 이상 전용 명령을 서버 코드·스킬에 쓰지 않음(§12)
 
 ## Windows 실기 검증 시
 IMPLEMENTATION_STATUS §7 체크리스트 순서로 진행하고, 확인 결과(통과·실패·실제 출력)를 같은 문서에 기록. 실제 `about` 출력·로그는 익명화 후 테스트 사례로 추가.
