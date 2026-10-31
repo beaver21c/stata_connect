@@ -51,6 +51,9 @@ def test_hook_blocks_raw_data(command):
     "StataMP-64 /e do 01.do",
     "stata-mp -b do x.do",
     "New-Object -ComObject stata.StataOLEApp",
+    "python -c \"import stata_setup; stata_setup.config('C:/Program Files/Stata18', 'se')\"",
+    "python -c \"from pystata import stata; stata.run('list')\"",
+    "python -c \"from sfi import Data\"",
 ])
 def test_hook_blocks_direct_stata(command):
     assert hookguard.check_command(command) == hookguard.REASON_STATA

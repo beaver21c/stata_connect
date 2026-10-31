@@ -294,7 +294,7 @@ spss-agent configure --clients claude-code --dry-run
 | 플러그인 마켓플레이스 | `.claude-plugin/marketplace.json`, `plugins/stata-agent`, `plugins/spss-agent` | `claude plugin validate` 통과, 가짜 HOME에서 `marketplace add`·`install`·`details` 확인(Claude Code 2.1.314) [1차 확인] / claude.ai 화면 추가 **실기 미검증** |
 | Claude Code 설치 명령 | `plugins/stata-agent/commands/setup.md` | 명령줄 인자는 테스트가 파서로 검사 / Claude Code 실제 수행 **실기 미검증** |
 | 분석 폴더 `.mcp.json` | `client_config.merge_project_mcp` | `${LOCALAPPDATA}` 확장 사용(경로에 사용자명 미기록) |
-| 실행 전 검사(hook) | `hookguard.py`, `stata-agent hook-guard`, 프로젝트 `.claude/settings.json` | 셸 명령의 `data/`·원자료 확장자·Stata 직접 실행 차단(종료 코드 2). 자동 테스트 / Windows Claude Code에서 **실기 미검증** |
+| 실행 전 검사(hook) | `hookguard.py`, `stata-agent hook-guard`, 프로젝트 `.claude/settings.json` | 셸 명령의 `data/`·원자료 확장자·Stata 직접 실행(실행파일·COM·pystata·stata_setup·sfi) 차단(종료 코드 2). 자동 테스트 / Windows Claude Code에서 **실기 미검증**. 이 문자열들을 쓰지 않는 스크립트 파일 실행은 막지 못함 |
 | 출력 인코딩 | `cli._utf8_when_piped` | 출력이 다른 프로그램으로 넘어가면 UTF-8 고정(Windows 기본 코드페이지 회피) |
 | 사용권 고지 | `THIRD_PARTY_NOTICES.txt` | 빌드 환경의 설치 정보로 자동 생성(stata-gui-mcp MIT 등) |
 | 배포 | `.github/workflows/package-windows.yml`, `pages.yml`, `site/build.py --binaries` | Pages `downloads/`에 exe·`.mcpb`·`latest.json`·SHA256SUMS |

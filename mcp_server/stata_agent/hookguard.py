@@ -26,14 +26,16 @@ _DATA_CD = re.compile(
 )
 # 통계 패키지 원자료 형식
 _RAW_FILE = re.compile(r"\.(?:dta|sav|zsav|por|sas7bdat|xpt|rds|rdata|parquet|feather)\b", re.IGNORECASE)
-# Stata 직접 실행(배치·COM) — MCP 도구의 guard·출력 필터를 거치지 않으므로 차단
+# Stata 직접 실행(배치·COM·pystata) — MCP 도구의 guard·출력 필터를 거치지 않으므로 차단
 _STATA_RUN = re.compile(
     r"stata(?:mp|se|be|ic)?(?:-64)?\.exe"
     r"|\bstata(?:mp|se|be|ic)?-64\b"
     r"|\bstata-(?:mp|se|be)\b"
     r"|\bxstata(?:-mp|-se)?\b"
     r"|stata\.stataoleapp"
-    r"|(?:^|[;&|]\s*)stata\s",
+    r"|(?:^|[;&|]\s*)stata\s"
+    # Python에서 Stata 직접 호출(StataCorp pystata·stata_setup, Stata 안 Python 연동 sfi)
+    r"|\bpystata\b|\bstata_setup\b|\b(?:import|from)\s+sfi\b",
     re.IGNORECASE,
 )
 
