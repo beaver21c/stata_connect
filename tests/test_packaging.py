@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _load(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod  # dataclass(문자열 형 주석)가 모듈을 찾을 수 있게 등록
     spec.loader.exec_module(mod)
     return mod
 
@@ -297,3 +298,98 @@ def test_setup_command_points_to_site_latest():
     build = _load(ROOT / "site" / "build.py", "site_build4")
     text = (ROOT / "plugins" / "stata-agent" / "commands" / "setup.md").read_text(encoding="utf-8")
     assert build.SITE_URL + "downloads/latest.json" in text
+
+
+# ── SPSS판 배포(IMPLEMENTATION_STATUS §13) ───────────────────────
+
+@pytest.mark.parametrize("command", [
+    "& 'C:\\Program Files\\IBM\\SPSS Statistics\\27\\stats.exe' -production x.spj",
+    "stats x.sps",
+    "& 'C:\\Program Files\\IBM\\SPSS\\Statistics\\22\\Python\\python.exe' run.py",
+    "python -c \"import spss; spss.Submit('LIST.')\"",
+    "runsyntx.exe job.sps",
+])
+def test_hook_blocks_direct_spss(command):
+    assert hookguard.check_command(command) == hookguard.REASON_SPSS
+
+
+@pytest.mark.parametrize("command", ["cat output/stats.json", "pip install statsmodels", "git diff --stat"])
+def test_hook_spss_patterns_no_false_positive(command):
+    assert hookguard.check_command(command) is None
+
+
+def test_spss_mcpb_manifest():
+    from spss_agent.tool_specs import TOOLS as SPSS_TOOLS
+
+    build = _load(ROOT / "packaging" / "build.py", "pkg_build_spss")
+    m = build.manifest(build.SPSS)
+    assert m["name"] == "spss-agent" and m["server"]["entry_point"] == "server/spss-agent.exe"
+    assert [t["name"] for t in m["tools"]] == [t.name for t in SPSS_TOOLS]
+    win = m["server"]["mcp_config"]["platform_overrides"]["win32"]
+    assert set(win["env"]) == {"SPSS_AGENT_HOME", "SPSS_AGENT_PYTHON"}
+    for value in win["env"].values():
+        assert value.removeprefix("${user_config.").removesuffix("}") in m["user_config"]
+    assert m["user_config"]["spss_home"]["type"] == "directory"
+    assert set(build.PRODUCTS) == {"stata", "spss"}
+
+
+def test_spss_setup_project_scope(monkeypatch, tmp_path):
+    from spss_agent import setup_wizard as sw
+    from spss_agent.discovery import SpssInstall
+
+    home = tmp_path / "SPSS22"
+    (home / "Python").mkdir(parents=True)
+    (home / "Python" / "python.exe").write_text("")
+    (home / "stats.exe").write_text("")
+    monkeypatch.delenv("SPSS_AGENT_PYTHON", raising=False)
+    inst = SpssInstall(str(home), 22, "user")
+    monkeypatch.setattr(sw, "discover", lambda preferred=None: ([inst], inst))
+    lines: list[str] = []
+    proj = tmp_path / "proj"
+    opts = sw.SpssSetupOptions(yes=True, clients="claude-code-project", install=False, skill=False,
+                               project=str(proj), spss_home=str(home))
+    res = sw.run_setup(opts, out=lines.append)
+    assert not res.errors and res.python_ready
+    text = "\n".join(lines)
+    assert "동봉 Python 2.7" in text and "버전 22" in text
+    entry = json.loads((proj / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["spss"]
+    assert entry["env"]["SPSS_AGENT_HOME"] == str(home)
+    settings = json.loads((proj / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert "hooks" in settings and any(r.startswith("mcp__spss__") for r in settings["permissions"]["allow"])
+
+
+def test_spss_setup_dry_run_changes_nothing(monkeypatch, tmp_path):
+    from spss_agent import setup_wizard as sw
+
+    monkeypatch.setattr(sw, "discover", lambda preferred=None: ([], None))
+    monkeypatch.setattr("stata_agent.setup_wizard.detect_clients", lambda: ["codex"])
+    res = sw.run_setup(sw.SpssSetupOptions(yes=True, dry_run=True, project=str(tmp_path / "p")), out=lambda s: None)
+    assert not (tmp_path / "p").exists()
+    assert all(c.action in ("planned", "skipped", "unchanged") for c in res.changes)
+
+
+def test_spss_plugin_setup_command_flags_exist():
+    from spss_agent import cli as spss_cli
+
+    text = (ROOT / "plugins" / "spss-agent" / "commands" / "setup.md").read_text(encoding="utf-8")
+    parser = spss_cli.build_parser()
+    lines = re.findall(r"^& \$(?:exe|installed) (.+)$", text, re.MULTILINE)
+    assert lines
+    for line in lines:
+        parser.parse_args(shlex.split(line.replace("(Get-Location).Path", "C:/proj")))
+    assert "$info.spss.exe" in text and "--no-skill" in text
+
+
+def test_site_latest_json_has_spss(tmp_path):
+    build = _load(ROOT / "site" / "build.py", "site_build5")
+    bins = tmp_path / "bins"
+    bins.mkdir()
+    for prod in ("stata", "spss"):
+        (bins / f"{prod}-agent-{__version__}.exe").write_bytes(b"MZ " + prod.encode())
+        (bins / f"{prod}-agent-{__version__}.mcpb").write_bytes(b"PK " + prod.encode())
+    values = build.build(tmp_path / "_site", bins)
+    latest = json.loads((tmp_path / "_site" / "downloads" / "latest.json").read_text(encoding="utf-8"))
+    assert latest["spss"]["exe"]["sha256"] == values["SPSS_EXE_SHA256"]
+    assert latest["spss"]["mcpb"]["file"] == f"spss-agent-{__version__}.mcpb"
+    html = (tmp_path / "_site" / "spss.html").read_text(encoding="utf-8")
+    assert f'href="downloads/spss-agent-{__version__}.exe"' in html and "{{" not in html

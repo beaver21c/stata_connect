@@ -18,6 +18,8 @@ from stata_agent.session_log import SessionLog, disclosure_draft
 
 from . import __version__
 from .backend import SpssBackend
+from .resources import SPSS
+from .backend import read_output as read_output_file
 from .discovery import SpssInstall, discover
 from .guard.output_filter import filter_output
 from .guard.policy import SpssGuard, SpssGuardContext
@@ -36,7 +38,10 @@ from .syntaxfile import (
 )
 
 AGENT_DIR = ".spss-agent"
-_EXPORT_FORMATS = {".docx": "DOC", ".xlsx": "XLSX", ".html": "HTML", ".pdf": "PDF"}
+# OMS FORMAT: DOC·XLS·PDF는 17부터, XLSX는 21부터(IBM OMS 문서 검색 요약 [2차 확인]).
+# FORMAT=DOC는 28.0.1 전까지 Word 97-2003(.doc) 형식으로 저장 [2차 확인] → 27 이하에서 .docx 요청은 .doc로 저장.
+_EXPORT_FORMATS = {".docx": "DOC", ".doc": "DOC", ".xlsx": "XLSX", ".xls": "XLS", ".html": "HTML", ".pdf": "PDF"}
+DOCX_FROM_VERSION = 28
 
 
 class SpssAgentService:
@@ -152,7 +157,7 @@ class SpssAgentService:
         if not root.is_dir():
             return ToolResult(f"프로젝트 폴더 없음: {project_dir} (폴더를 먼저 만들 것)", True)
         root = root.resolve()
-        created = init_project(root)
+        created = init_project(root, hook=SPSS.hook_command())
         outcome = self.backend.open_session(root)
         if not outcome.ok:
             return ToolResult("세션 열기 실패: " + (outcome.message or "원인 미상"), True)
@@ -287,7 +292,7 @@ class SpssAgentService:
             path = self.last_out
         if path is None or not path.is_file():
             return ToolResult("읽을 출력 없음", True)
-        res = filter_output(path.read_text(encoding="utf-8-sig", errors="replace"), self.filter_cfg, str(path))
+        res = filter_output(read_output_file(path), self.filter_cfg, str(path))
         text = "\n".join(res.text.splitlines()[-int(tail_lines):]) if tail_lines else res.text
         return ToolResult(f"=== {path.name} (필터 적용) ===\n{text}"
                           + (f"\n[출력 필터 차단 {len(res.events)}건]" if res.events else ""))
@@ -296,11 +301,18 @@ class SpssAgentService:
         root = self._require_project()
         ext = Path(output).suffix.lower()
         if ext not in _EXPORT_FORMATS or not re.fullmatch(r"[A-Za-z0-9_\-]+\.[a-z]+", output):
-            return ToolResult("output 형식 오류(예: table1.docx / .xlsx / .html / .pdf)", True)
+            return ToolResult("output 형식 오류(예: table1.docx / .doc / .xlsx / .xls / .html / .pdf)", True)
         try:
             sec = SyntaxFile.parse(self._project_file(filename).read_text(encoding="utf-8-sig")).get(section_id)
         except (SyntaxFileError, ServiceError, OSError) as e:
             return ToolResult(str(e), True)
+        note = ""
+        version = self.backend.install.version if self.backend.install else None
+        if ext == ".docx" and version is not None and version < DOCX_FROM_VERSION:
+            output = output[: -len(ext)] + ".doc"
+            note = f"ℹ️ SPSS {version}의 Word 내보내기는 .doc(Word 97-2003) 형식 → {output}로 저장\n"
+        elif ext == ".docx" and version == DOCX_FROM_VERSION:
+            note = "ℹ️ SPSS 28.0.0은 .doc 형식으로 저장될 수 있음(28.0.1부터 .docx) — Word에서 열리지 않으면 .doc로 다시 요청\n"
         target = root / "output" / "tables" / output
         target.parent.mkdir(parents=True, exist_ok=True)
         code = (f"OMS /TAG='SAEXPORT' /SELECT TABLES /DESTINATION FORMAT={_EXPORT_FORMATS[ext]} "
@@ -308,7 +320,7 @@ class SpssAgentService:
         res = self._guarded_run("spss_export", sec.code(), root / AGENT_DIR / "export.txt", acknowledge_risks,
                                 run_code=code, file=filename, section=sec.id, export_file=f"output/tables/{output}")
         if not res.is_error:
-            res.text = (f"{'✅ 파일 생성' if target.is_file() else '⚠️ 파일 미확인'}: output/tables/{output}\n") + res.text
+            res.text = note + (f"{'✅ 파일 생성' if target.is_file() else '⚠️ 파일 미확인'}: output/tables/{output}\n") + res.text
         return res
 
     def reproduce(self) -> ToolResult:
@@ -347,7 +359,7 @@ class SpssAgentService:
                 if not interactive.is_file():
                     lines.append(f"- {name}: 대화형 전체 실행 출력 없음(비교 생략)")
                     continue
-                res = compare_logs(interactive.read_text(encoding="utf-8-sig", errors="replace"), outcome.log_text)
+                res = compare_logs(read_output_file(interactive), outcome.log_text)
                 compared += 1
                 if res.equal:
                     lines.append(f"- {name}: 일치(수치 포함 {res.compared_lines}줄)")

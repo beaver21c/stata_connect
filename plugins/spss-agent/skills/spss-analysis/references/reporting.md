@@ -9,4 +9,5 @@
 
 ## 표 산출
 - `spss_export(filename, section_id, output="table2.docx")` → 해당 섹션을 다시 실행하며 표만 저장
+- 버전별 형식(OMS) [2차 확인: IBM OMS 문서 검색 요약]: Word·Excel(.xls)·PDF는 17부터, `.xlsx`는 21부터. Word는 28.0.1 전까지 `.doc`(97-2003) 형식 → 27 이하에서는 도구가 `.doc`로 저장. 29에서 `.xlsx`가 빈 파일로 나온 보고가 있음 → `.xls` 사용
 - 모든 수치는 출력 인용, 표 번호와 .sps 섹션 대응표 유지

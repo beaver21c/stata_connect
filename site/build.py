@@ -95,7 +95,11 @@ def build(out: Path, binaries: Path | None = None) -> dict:
     spss_vals, spss_sum = _zip_values("SPSS_", SPSS_SKILL_DIR, version, downloads)
     exe_vals, exe_sum, exe_entry = _binary_values("EXE", f"stata-agent-{version}.exe", binaries, downloads)
     mcpb_vals, mcpb_sum, mcpb_entry = _binary_values("MCPB", f"stata-agent-{version}.mcpb", binaries, downloads)
-    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum + exe_sum + mcpb_sum, encoding="utf-8")
+    s_exe_vals, s_exe_sum, s_exe_entry = _binary_values("SPSS_EXE", f"spss-agent-{version}.exe", binaries, downloads)
+    s_mcpb_vals, s_mcpb_sum, s_mcpb_entry = _binary_values("SPSS_MCPB", f"spss-agent-{version}.mcpb", binaries,
+                                                           downloads)
+    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum + exe_sum + mcpb_sum + s_exe_sum + s_mcpb_sum,
+                                              encoding="utf-8")
     notices = binaries / "THIRD_PARTY_NOTICES.txt" if binaries else None
     if notices is not None and notices.is_file():
         shutil.copy2(notices, downloads / "THIRD_PARTY_NOTICES.txt")
@@ -103,8 +107,12 @@ def build(out: Path, binaries: Path | None = None) -> dict:
         (downloads / "THIRD_PARTY_NOTICES.txt").write_text(f"{PENDING}(실행파일에 포함된 외부 구성요소 사용권 고지)\n",
                                                            encoding="utf-8")
     if exe_entry:
+        # 최상위 exe·mcpb = Stata(기존 /stata-agent:setup 호환), spss 항목 = SPSS판(/spss-agent:setup)
         latest = {"version": version, "exe": exe_entry, "mcpb": mcpb_entry,
                   "skill_zip": f"{SITE_URL}downloads/{stata_vals['SKILL_ZIP']}"}
+        if s_exe_entry:
+            latest["spss"] = {"exe": s_exe_entry, "mcpb": s_mcpb_entry,
+                              "skill_zip": f"{SITE_URL}downloads/{spss_vals['SPSS_SKILL_ZIP']}"}
         (downloads / "latest.json").write_text(json.dumps(latest, ensure_ascii=False, indent=2) + "\n",
                                                encoding="utf-8")
 
@@ -114,6 +122,8 @@ def build(out: Path, binaries: Path | None = None) -> dict:
         **spss_vals,
         **exe_vals,
         **mcpb_vals,
+        **s_exe_vals,
+        **s_mcpb_vals,
         "BUILD_DATE": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "REPO_URL": REPO_URL,
     }
