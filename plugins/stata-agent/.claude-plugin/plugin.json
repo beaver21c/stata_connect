@@ -1,0 +1,10 @@
+{
+  "name": "stata-agent",
+  "displayName": "Stata 에이전트",
+  "version": "0.1.0",
+  "description": "Stata가 계산하고 AI는 do-file 작성·결과 판독·해석을 맡는 분석 스킬. Claude Code에서는 /stata-agent:setup으로 설치·연결까지 진행",
+  "author": { "name": "beaver21c", "url": "https://github.com/beaver21c" },
+  "homepage": "https://beaver21c.github.io/stata_connect/",
+  "repository": "https://github.com/beaver21c/stata_connect",
+  "keywords": ["stata", "statistics", "research"]
+}

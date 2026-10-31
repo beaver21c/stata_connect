@@ -15,6 +15,7 @@
     <a class="brand" href="#top">Stata 에이전트</a>
     <a href="#how">작동 방식</a>
     <a href="#ready">준비물</a>
+    <a href="#choose">설치 방법 고르기</a>
     <a href="#download">다운로드</a>
     <a href="#start">시작하기</a>
     <a href="#first">첫 분석</a>
@@ -33,11 +34,11 @@
   <p class="lead">Claude 또는 ChatGPT(Codex)에게 분석을 말로 요청하면 AI가 do-file을 쓰고, 연구자가 승인하면 Stata가 계산하고, AI가 결과 로그를 읽어 검증·해석까지 돕는 도구.</p>
   <div class="status" role="note">
     <span aria-hidden="true">⚠️</span>
-    <div><b>개발 미리보기 v{{VERSION}}</b> — 클릭 몇 번으로 끝나는 <b>설치 프로그램은 준비 중</b>(실제 Stata 환경 시험 후 공개). 지금은 준비물 확인과 분석 스킬 받기까지 가능.</div>
+    <div><b>시험판 v{{VERSION}}</b> — 설치 파일은 자동 점검(Stata 없이 하는 연결·차단 시험)을 통과한 시험판임. <b>실제 Windows·Stata 환경 시험은 아직 진행 전</b>이므로 기관 업무 자료에 쓰기 전에 예제 자료로 먼저 확인할 것.</div>
   </div>
   <div class="cta">
-    <a class="btn" href="#download">무엇을 받나요?</a>
-    <a class="btn ghost" href="#start">시작하기 순서 보기</a>
+    <a class="btn" href="#choose">설치 방법 고르기</a>
+    <a class="btn ghost" href="#download">무엇을 받나요?</a>
   </div>
 </header>
 
@@ -55,89 +56,143 @@
 
 <section id="ready">
   <h2>준비물</h2>
-  <p class="sub">세 가지만 있으면 됨. 프로그래밍 도구(Python 등)는 따로 설치하지 않음.</p>
+  <p class="sub">세 가지만 있으면 됨. Python 등 프로그래밍 도구는 따로 설치하지 않음.</p>
   <div class="checklist">
     <div><b>① Windows PC</b>Windows 10 또는 11. Mac은 추후 지원 예정.</div>
     <div><b>② 설치된 Stata</b>버전 17·18·19(StataNow 포함), BE·SE·MP 모두 가능. 라이선스가 유효해야 함.</div>
-    <div><b>③ 유료 요금제 1개</b><b style="display:inline;font-weight:600">Claude Pro</b> 또는 <b style="display:inline;font-weight:600">ChatGPT Plus</b>(각 월 20달러 내외) 중 하나.</div>
+    <div><b>③ 유료 요금제 1개</b><b style="display:inline;font-weight:600">Claude Pro 이상</b> 또는 <b style="display:inline;font-weight:600">ChatGPT Plus 이상</b> 중 하나. Claude Pro 이상에는 Claude Code 사용이 포함됨(무료 요금제 제외).</div>
   </div>
+</section>
+
+<section id="choose">
+  <h2>설치 방법 고르기</h2>
+  <p class="sub">Claude 사용자는 두 방법 중 하나를 고름. ChatGPT(Codex) 사용자는 설치 도우미 하나로 끝남.</p>
+  <div class="cmp-wrap">
+  <table class="cmp">
+    <thead><tr><th></th><th>A. 클릭 설치<br><span class="meta">Claude 앱 채팅에서 분석</span></th><th>B. Claude Code에게 맡기기<br><span class="meta">Claude 앱 Code 탭에서 분석</span></th></tr></thead>
+    <tbody>
+      <tr><th>내가 하는 일</th><td data-label="A. 클릭 설치">파일 1~2개 더블클릭 + 앱 메뉴에서 플러그인 추가</td><td data-label="B. Claude Code">플러그인 추가 후 <code>/stata-agent:setup</code> 입력, 이후 승인만</td></tr>
+      <tr><th>설치 중 문제 해결</th><td data-label="A. 클릭 설치">설명서 질문 항목을 보고 직접 조치</td><td data-label="B. Claude Code">Claude가 오류 출력을 읽고 원인·다음 조치를 설명</td></tr>
+      <tr><th>분석하는 화면</th><td data-label="A. 클릭 설치">일반 채팅(대화 위주)</td><td data-label="B. Claude Code">폴더 단위 작업 화면(do-file·결과 파일을 함께 봄)</td></tr>
+      <tr><th>원자료 보호</th><td data-label="A. 클릭 설치">채팅 앱은 PC 명령을 직접 실행할 수 없어 Stata 도구의 차단·필터만 거침 → <b>더 엄격</b></td><td data-label="B. Claude Code">Claude Code는 PC 명령을 실행할 수 있음 → 폴더 권한 규칙·실행 전 검사로 막지만 우회 가능성이 남음. 승인 창의 명령을 읽고 허용할 것</td></tr>
+      <tr><th>필요한 요금제</th><td data-label="A. 클릭 설치">Claude Pro 이상(권장)</td><td data-label="B. Claude Code">Claude Pro 이상(필수)</td></tr>
+      <tr><th>현재 상태</th><td data-label="A. 클릭 설치"><span class="chip trial">시험판</span></td><td data-label="B. Claude Code"><span class="chip trial">시험판</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="pick">
+    <div><b>이럴 때 A</b>처음 쓰는 경우, 행정자료·민감자료를 다루는 경우, 대화로 결과 해석을 주로 받는 경우</div>
+    <div><b>이럴 때 B</b>설치를 AI에게 맡기고 싶은 경우, do-file·결과 파일을 폴더 단위로 관리하며 길게 작업하는 경우</div>
+  </div>
+  <p class="note">두 방법은 함께 써도 됨(같은 실행파일 사용). 원자료 보호 비교는 공식 문서 확인 사항(Claude Code의 파일 읽기 차단 규칙은 스크립트가 직접 파일을 여는 경우까지는 막지 못함)에 근거한 판단임.</p>
 </section>
 
 <section id="download">
   <h2>다운로드</h2>
-  <p class="sub">받을 파일은 최종적으로 설치 프로그램 1개. 현재 받을 수 있는 것은 분석 스킬 파일뿐임.</p>
+  <p class="sub">방법 A는 아래 파일을 직접 받고, 방법 B는 Claude가 같은 파일을 받아 확인값까지 대조함.</p>
   <div class="dl">
     <article>
       <div class="head">
-        <div><h3>통합 설치 프로그램</h3><div class="file">StataAgentSetup.exe</div></div>
-        <span class="chip wait">준비 중</span>
+        <div><h3>Claude 데스크톱 확장</h3><div class="file">{{MCPB_FILE}}</div></div>
+        <span class="chip trial">시험판</span>
       </div>
-      <p>이 파일 하나로 Stata 연결 설정, Claude·Codex 앱 연결, 예제 폴더 생성까지 한 번에 진행. 관리자 승인 창이 한 번 뜸.</p>
-      <a class="btn" aria-disabled="true" role="link" tabindex="-1">실제 Stata 환경 시험 후 공개 예정</a>
-    </article>
-    <article>
-      <div class="head">
-        <div><h3>분석 스킬</h3><div class="file">{{SKILL_ZIP}}</div></div>
-        <span class="chip ok">지금 받기 가능</span>
-      </div>
-      <p>AI에게 Stata 분석 절차(승인 → 실행 → 검증 → 해석, 기법별 점검표)를 알려 주는 지침 묶음. Claude 앱에는 <a href="#start">시작하기</a>의 방법으로 한 번 올림.</p>
-      <p class="note">스킬만으로는 Stata에 연결되지 않음 → 설치 프로그램 공개 후 함께 사용.</p>
-      <a class="btn" href="downloads/{{SKILL_ZIP}}" download>스킬 받기 ({{SKILL_SIZE}})</a>
+      <p>Claude 앱(채팅)에 Stata 연결 도구를 넣는 파일. 더블클릭하면 Claude 앱의 설치 화면이 열림. 방법 A용.</p>
+      {{MCPB_BUTTON}}
       <details>
         <summary>파일 확인값(SHA-256)</summary>
-        <p class="meta">받은 파일이 원본과 같은지 확인하는 값. 필요한 경우에만 확인.</p>
-        <p class="meta"><code>{{SKILL_SHA256}}</code></p>
+        <p class="meta"><code>{{MCPB_SHA256}}</code></p>
       </details>
     </article>
     <article>
       <div class="head">
-        <div><h3>Claude 데스크톱 확장</h3><div class="file">stata-agent.mcpb</div></div>
-        <span class="chip wait">준비 중</span>
+        <div><h3>설치 도우미</h3><div class="file">{{EXE_FILE}}</div></div>
+        <span class="chip trial">시험판</span>
       </div>
-      <p>설치 프로그램 안에 포함될 예정. Claude 앱만 쓰는 경우 이 파일을 더블클릭해 따로 설치할 수도 있게 할 계획.</p>
+      <p>더블클릭하면 질문에 답하며 진행: Stata 확인, Stata 화면 연동 등록(관리자 승인 1회, 선택), Codex·Claude Code 연결. Codex 사용자와 방법 A의 화면 연동용.</p>
+      {{EXE_BUTTON}}
+      <details>
+        <summary>파일 확인값(SHA-256)</summary>
+        <p class="meta"><code>{{EXE_SHA256}}</code></p>
+      </details>
+    </article>
+    <article>
+      <div class="head">
+        <div><h3>분석 스킬(플러그인)</h3><div class="file">beaver21c/stata_connect</div></div>
+        <span class="chip ok">지금 사용 가능</span>
+      </div>
+      <p>AI에게 분석 절차(승인 → 실행 → 검증 → 해석, 기법별 점검표)를 알려 주는 지침 묶음. Claude 앱 메뉴에서 위 주소를 <b>플러그인 마켓플레이스</b>로 추가하면 자동 갱신됨.</p>
+      <p class="note">메뉴 추가가 안 되는 환경이면 ZIP 파일을 직접 올림(Customize › Skills › + › Upload a skill).</p>
+      <a class="btn ghost" href="downloads/{{SKILL_ZIP}}" download>스킬 ZIP 받기 ({{SKILL_SIZE}})</a>
+      <details>
+        <summary>파일 확인값(SHA-256)</summary>
+        <p class="meta"><code>{{SKILL_SHA256}}</code></p>
+      </details>
     </article>
   </div>
+  <p class="note">설치 파일은 코드 서명 전이라 Windows·Claude 앱이 경고를 띄울 수 있음 → <a href="#faq">자주 묻는 질문</a>. 포함된 외부 구성요소 사용권: <a href="downloads/THIRD_PARTY_NOTICES.txt">THIRD_PARTY_NOTICES.txt</a></p>
 </section>
 
 <section id="start">
   <h2>시작하기</h2>
-  <p class="sub">쓰는 요금제를 고르면 해당 순서가 보임.</p>
+  <p class="sub">고른 방법의 탭을 누르면 해당 순서가 보임.</p>
   <div class="tabs">
     <input type="radio" name="plan" id="t-claude" checked>
+    <input type="radio" name="plan" id="t-code">
     <input type="radio" name="plan" id="t-codex">
     <div class="tabbar" role="tablist">
-      <label for="t-claude" role="tab">Claude Pro</label>
-      <label for="t-codex" role="tab">ChatGPT Plus</label>
+      <label for="t-claude" role="tab">A. 클릭 설치</label>
+      <label for="t-code" role="tab">B. Claude Code</label>
+      <label for="t-codex" role="tab">ChatGPT(Codex)</label>
     </div>
 
     <div class="panel" id="p-claude">
       <ol class="steps">
-        <li><b class="t">Claude 데스크톱 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
-          <p><a href="https://claude.com/download">claude.com/download</a>에서 Windows용 앱을 받아 설치하고 Pro 계정으로 로그인.</p></li>
-        <li><b class="t">코드 실행 기능 켜기</b> <span class="chip ok">지금 가능</span>
+        <li><b class="t">Claude 데스크톱 앱 설치·로그인</b>
+          <p><a href="https://claude.com/download">claude.com/download</a>에서 Windows용 앱을 받아 설치하고 Pro 이상 계정으로 로그인.</p></li>
+        <li><b class="t">파일 생성 기능 켜기</b>
           <div class="path"><span>Settings</span><i>›</i><span>Capabilities</span><i>›</i><span>Create and edit files</span><i>켜기</i></div>
-          <p class="note">스킬을 쓰려면 필요함(Claude 공식 안내). 메뉴 이름은 앱 버전에 따라 “Code execution and file creation”으로 보일 수 있음.</p></li>
-        <li><b class="t">분석 스킬 올리기</b> <span class="chip ok">지금 가능</span>
-          <p>위 <a href="#download">다운로드</a>에서 받은 ZIP 파일을 압축 풀지 말고 그대로 올림.</p>
-          <div class="path"><span>Customize</span><i>›</i><span>Skills</span><i>›</i><span>+</span><i>›</i><span>+ Create skill</span><i>›</i><span>Upload a skill</span></div></li>
-        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
-          <p>StataAgentSetup.exe 실행 → 관리자 승인 1회 → 다음 → 완료. Stata 연결과 Claude 앱 연결이 자동으로 설정됨.</p></li>
-        <li><b class="t">Claude 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span>
-          <p>창만 닫지 말고 작업 표시줄 아이콘에서 종료. 설정을 다시 읽어야 연결됨.</p></li>
-        <li><b class="t">채팅에 “Stata 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+          <p class="note">스킬을 쓰려면 필요함(Claude 공식 안내). 앱 버전에 따라 “Code execution and file creation”으로 보일 수 있음.</p></li>
+        <li><b class="t">분석 스킬 추가(플러그인)</b>
+          <div class="path"><span>Customize</span><i>›</i><span>Plugins</span><i>›</i><span>Add</span><i>›</i><span>Add marketplace</span></div>
+          <p>주소 칸에 <code class="cmd">beaver21c/stata_connect</code> 입력 → 목록의 <b>stata-agent</b> 추가.</p></li>
+        <li><b class="t">Stata 연결 확장 설치</b>
+          <p>다운로드의 <b>{{MCPB_FILE}}</b>을 받아 더블클릭 → Claude 앱 설치 화면에서 설치. Stata를 자동으로 못 찾는 경우에만 설정 칸에 Stata 실행파일 위치를 지정.</p>
+          <p class="note">더블클릭으로 열리지 않으면: Settings › Extensions › Advanced settings › Install Extension…에서 파일 선택(MCPB 공식 안내).</p></li>
+        <li><b class="t">(선택) Stata 화면 연동</b>
+          <p>분석 과정을 Stata 창에서 직접 보려면 <b>{{EXE_FILE}}</b>을 더블클릭 → 질문에 Enter → 관리자 승인 창에서 “예”. 하지 않아도 화면 없는 실행(배치)으로 분석 가능.</p></li>
+        <li><b class="t">새 채팅에 “Stata 연결 점검해줘” 입력</b>
           <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
       </ol>
     </div>
 
+    <div class="panel" id="p-code">
+      <ol class="steps">
+        <li><b class="t">Claude 데스크톱 앱 설치·로그인 → Code 탭</b>
+          <p><a href="https://claude.com/download">claude.com/download</a>에서 설치하고 Pro 이상 계정으로 로그인한 뒤 위쪽의 <b>Code</b> 탭을 누름. 관리자 권한·Git 설치는 필요 없음(Claude Code 공식 안내).</p></li>
+        <li><b class="t">분석 스킬 추가(플러그인)</b>
+          <div class="path"><span>Customize</span><i>›</i><span>Plugins</span><i>›</i><span>Add</span><i>›</i><span>Add marketplace</span></div>
+          <p><code class="cmd">beaver21c/stata_connect</code> 입력 → <b>stata-agent</b> 추가.</p>
+          <p class="note">터미널판 Claude Code: <code>/plugin marketplace add beaver21c/stata_connect</code> → <code>/plugin install stata-agent@stata-connect</code></p></li>
+        <li><b class="t">분석 폴더 열기</b>
+          <p>새 세션의 작업 폴더로 빈 폴더를 고름(예: 문서\StataAgent\프로젝트1). 문서·바탕화면 전체를 고르지 않음.</p></li>
+        <li><b class="t"><code>/stata-agent:setup</code> 입력</b>
+          <p>Claude가 설치 파일 받기 → 확인값 대조 → Stata 확인 → 폴더 준비 → 연결 등록을 차례로 진행하며 명령마다 승인을 요청함. 명령 내용을 읽고 “허용”. Stata 화면 연동을 원하면 관리자 승인 창에서 “예”.</p></li>
+        <li><b class="t">새 세션 시작 → “Stata 상태 확인해줘”</b>
+          <p>같은 폴더로 새 세션을 열고, <b>stata</b> 서버 사용을 묻는 창에서 허용. 이후 <a href="#first">첫 분석</a>으로.</p></li>
+      </ol>
+      <p class="note">플러그인 자동 갱신과 Code 탭의 플러그인 사용은 공식 문서 확인 사항, 위 순서 전체의 실제 화면 시험은 진행 전.</p>
+    </div>
+
     <div class="panel" id="p-codex">
       <ol class="steps">
-        <li><b class="t">Codex 앱 설치·로그인</b> <span class="chip ok">지금 가능</span>
-          <p>Microsoft Store에서 “Codex”를 찾아 설치하고 ChatGPT Plus 계정으로 로그인. ChatGPT Plus에는 Codex 사용이 포함됨.</p>
+        <li><b class="t">Codex 앱 설치·로그인</b>
+          <p>Microsoft Store에서 “Codex”를 찾아 설치하고 ChatGPT Plus 이상 계정으로 로그인.</p>
           <p class="note">OpenAI 공식 안내: <a href="https://developers.openai.com/codex/app">developers.openai.com/codex/app</a></p></li>
-        <li><b class="t">설치 프로그램 실행</b> <span class="chip wait">준비 중</span>
-          <p>StataAgentSetup.exe 실행 → 관리자 승인 1회 → 다음 → 완료. Codex 설정과 분석 스킬이 자동으로 들어감(따로 올릴 필요 없음).</p></li>
-        <li><b class="t">Codex 앱 완전히 종료 후 다시 실행</b> <span class="chip wait">준비 중</span></li>
-        <li><b class="t">채팅에 “Stata 연결 점검해줘” 입력</b> <span class="chip wait">준비 중</span>
+        <li><b class="t">설치 도우미 실행</b>
+          <p>다운로드의 <b>{{EXE_FILE}}</b>을 더블클릭 → 질문에 Enter. Codex 설정과 분석 스킬이 자동으로 들어감(기존 설정은 백업). Stata 화면 연동을 고르면 관리자 승인 창에서 “예”.</p></li>
+        <li><b class="t">Codex 앱 완전히 종료 후 다시 실행</b>
+          <p>창만 닫지 말고 작업 표시줄 아이콘에서 종료. 설정을 다시 읽어야 연결됨.</p></li>
+        <li><b class="t">채팅에 “Stata 연결 점검해줘” 입력</b>
           <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
       </ol>
     </div>
@@ -146,7 +201,7 @@
 
 <section id="first">
   <h2>첫 분석 해 보기</h2>
-  <p class="sub">Stata에 들어 있는 예제 자료(auto)로 연습. 설치 프로그램 공개 후 사용 가능.</p>
+  <p class="sub">Stata에 들어 있는 예제 자료(auto)로 연습. 내 자료를 쓰기 전에 먼저 해 볼 것.</p>
   <div class="chat">
     <div class="msg me">auto 자료 열고 기술통계 보여줘</div>
     <div class="msg ai">Stata 창을 열고 01_describe.do를 작성했습니다. 실행할까요?<small>승인 창 → “허용” 클릭</small></div>
@@ -208,16 +263,24 @@
 <section id="faq">
   <h2>자주 묻는 질문</h2>
   <details>
-    <summary>설치 프로그램은 언제 나오나요?</summary>
-    <p>실제 Stata(17·18·19)와 Claude·Codex 앱에서 연결 시험을 마친 뒤 공개함. 공개되면 이 페이지의 다운로드 칸에 버튼이 생김.</p>
+    <summary>“시험판”은 무슨 뜻인가요?</summary>
+    <p>설치 파일은 저장소의 자동 점검(Windows에서 빌드 후 Stata 없이 연결·도구 목록·차단 규칙 시험)을 통과했지만, 실제 Stata(17·18·19)와 Claude·Codex 앱에서의 시험은 아직 진행 전이라는 뜻. 시험 결과는 소스 저장소의 docs/IMPLEMENTATION_STATUS.md에 기록됨.</p>
   </details>
   <details>
     <summary>설치할 때 “Windows의 PC 보호” 파란 창이 뜨면?</summary>
-    <p>초기 버전은 코드 서명 인증서가 없어 이 창이 뜰 수 있음. 이 페이지에서 받은 파일인지 확인한 뒤 “추가 정보 → 실행”을 누름. 기관 PC에서는 보안 프로그램이 막을 수 있으므로 전산 담당자에게 예외 등록을 요청.</p>
+    <p>시험판은 코드 서명 인증서가 없어 이 창이 뜰 수 있음. 이 페이지에서 받은 파일인지(필요하면 확인값 대조) 확인한 뒤 “추가 정보 → 실행”을 누름. 기관 PC에서는 보안 프로그램이 막을 수 있으므로 전산 담당자에게 예외 등록을 요청.</p>
+  </details>
+  <details>
+    <summary>Claude 앱이 확장 설치 때 경고를 띄워요</summary>
+    <p>시험판 확장(.mcpb)은 서명 전이라 경고가 표시될 수 있음(표시 문구는 실기 확인 전). 이 페이지에서 받은 파일인지 확인한 뒤 설치.</p>
+  </details>
+  <details>
+    <summary>방법 B에서 Claude가 실행하려는 명령을 어떻게 판단하나요?</summary>
+    <p>승인 창에 실행할 명령이 그대로 보임. <code>data</code> 폴더의 파일을 열거나 Stata를 직접 실행하는 명령은 설치 때 넣은 실행 전 검사가 막지만, 처음 보는 명령이면 “허용” 대신 “무엇을 하는 명령인지 설명해줘”라고 물어볼 것.</p>
   </details>
   <details>
     <summary>“관리자 승인”은 왜 필요한가요?</summary>
-    <p>AI가 Stata 창을 열고 명령을 보내려면 Stata를 Windows에 한 번 등록해야 하며, 이때 관리자 권한이 필요함. 권한이 없으면 창을 띄우지 않는 방식(배치 모드)으로만 작동하고, 일부 기능이 줄어듦.</p>
+    <p>AI가 Stata 창을 열고 명령을 보내려면 Stata를 Windows에 한 번 등록(COM 등록)해야 하며, 이때 관리자 권한이 필요함. 선택 사항이며, 등록하지 않으면 창을 띄우지 않는 방식(배치 실행)으로 작동하고 편집기 연동 등 일부 기능이 빠짐. 나중에 설치 도우미를 다시 실행해 등록할 수 있음.</p>
   </details>
   <details>
     <summary>“라이선스가 만료됨”이라고 나오면?</summary>
@@ -252,14 +315,14 @@
   <p>연결 점검에서 만들어진 <b>점검 보고서 파일만</b> 첨부해 <a href="https://github.com/beaver21c/stata_connect/issues/new">오류 알리기</a>에 올림. 분석 로그 원문, 자료 파일 경로, 변수 값은 올리지 않음.</p>
   <details>
     <summary>개발자용: 현재 개발판 설치 방법</summary>
-    <p class="note">명령줄 사용이 필요한 개발·시험용 경로이며 일반 사용자는 설치 프로그램 공개를 기다리면 됨. 자세한 내용은 <a href="{{REPO_URL}}">소스 저장소</a>의 README와 docs/IMPLEMENTATION_STATUS.md 참조.</p>
+    <p class="note">명령줄 사용이 필요한 개발·시험용 경로이며 일반 사용자는 위 시작하기 순서를 따르면 됨. 자세한 내용은 <a href="{{REPO_URL}}">소스 저장소</a>의 README와 docs/IMPLEMENTATION_STATUS.md 참조.</p>
   </details>
 </section>
 </main>
 
 <footer>
   <div class="wrap">
-    Stata 에이전트 v{{VERSION}} · 개발 미리보기 · 페이지 갱신 {{BUILD_DATE}}<br>
+    Stata 에이전트 v{{VERSION}} · 시험판 · 페이지 갱신 {{BUILD_DATE}}<br>
     Stata는 StataCorp LLC의 등록상표이며, 이 도구는 StataCorp·Anthropic·OpenAI와 관련 없는 독립 프로젝트임.
   </div>
 </footer>

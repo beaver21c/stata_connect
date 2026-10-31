@@ -42,6 +42,7 @@ from .guard.output_filter import FilterConfig, extract_markers, filter_output
 from .guard.stata_lexer import iter_statements, parse_command, abbrev_match
 from .log_compare import compare_logs
 from .project import init_project
+from .resources import hook_command
 from .session_log import SessionLog, disclosure_draft
 
 
@@ -349,7 +350,7 @@ class StataAgentService:
         root = root.resolve()
         sid = re.sub(r"[^A-Za-z0-9_.-]+", "_", session_id or root.name).strip("_") or "stata_session"
         version_line = self._version_line()
-        created = init_project(root, version_line)
+        created = init_project(root, version_line, hook=hook_command())
         outcome = self.backend.open_session(root, sid)
         if not outcome.ok:
             return ToolResult("세션 열기 실패: " + (outcome.message or "원인 미상"), True)
@@ -581,6 +582,8 @@ class StataAgentService:
                 return ToolResult("estimates: estimates store로 저장한 이름 목록 필요", True)
             if not filename or not re.fullmatch(r"[A-Za-z0-9_\-]+\.(docx|xlsx|html|tex|md|txt|pdf)", filename):
                 return ToolResult("filename 형식 오류(예: table1.docx)", True)
+            # 상대경로(공백·쉼표 없음) 유지: Stata 17·18 초기판의 etable export()는 따옴표 안 경로의
+            # 공백·쉼표를 잘못 해석한다는 보고가 있음(Statalist, 18은 2024-09-04 갱신에서 수정 — 2차 자료)
             target = f"output/tables/{filename}"
             run_code = f'etable, estimates({" ".join(estimates)}) mstat(N) export("{target}", replace)\n'
         elif mode == "custom":

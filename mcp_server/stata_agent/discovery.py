@@ -25,6 +25,8 @@ IS_WINDOWS = sys.platform.startswith("win")
 EXE_RE = re.compile(r"^Stata(MP|SE|BE|IC)?-64\.exe$", re.IGNORECASE)
 UNIX_EXE_NAMES = ("stata-mp", "stata-se", "stata", "stata-be")
 _EDITION_RANK = {"MP": 3, "SE": 2, "BE": 1, "IC": 1}
+# 지원 범위: Stata 17 이상(etable·collect가 17에서 도입, 상류 stata-gui-mcp 1.1.0도 17/18/19 명시)
+MIN_SUPPORTED_MAJOR = 17
 
 _FIRST_LINE_RE = re.compile(
     r"^(?P<product>StataNow|Stata)(?:/(?P<edition>MP|SE|BE|IC))?\s+(?P<version>\d+(?:\.\d+)?)\s+for\s+(?P<platform>.+?)\s*$"
@@ -150,7 +152,23 @@ class StataInstall:
 
     @property
     def edition(self) -> str | None:
-        return (self.about.edition if self.about and self.about.edition else None) or self.edition_hint
+        if self.about and self.about.edition:
+            return self.about.edition
+        # 실행파일명에 에디션 표기가 없으면 IC로 추정하나, 17부터 IC는 BE로 바뀜(Stata 17 매뉴얼 2차 확인)
+        if self.edition_hint == "IC" and (self.version_hint or 0) >= 17:
+            return "BE"
+        return self.edition_hint
+
+    @property
+    def major(self) -> int | None:
+        if self.about and self.about.major:
+            return self.about.major
+        return self.version_hint
+
+    @property
+    def supported(self) -> bool | None:
+        """Stata 17 이상이면 True, 미만이면 False, 버전을 모르면 None."""
+        return None if self.major is None else self.major >= MIN_SUPPORTED_MAJOR
 
     @property
     def version_number(self) -> float:
@@ -167,6 +185,7 @@ class StataInstall:
             "edition": self.edition,
             "version": self.about.version if self.about and self.about.version else self.version_hint,
             "source": self.source,
+            "supported": self.supported,
             "about": self.about.public_dict(today) if self.about else None,
             "about_error": self.about_error,
         }
@@ -354,7 +373,9 @@ class DiscoveryReport:
 
 
 def discover(run_about_checks: bool = True, preferred_exe: str | None = None) -> DiscoveryReport:
-    preferred_exe = preferred_exe or os.environ.get("STATA_AGENT_STATA_EXE") or None
+    from .config import _env
+
+    preferred_exe = preferred_exe or _env("STATA_AGENT_STATA_EXE")
     installs = scan_installations()
     if preferred_exe and os.path.isfile(preferred_exe) and not any(
         os.path.normcase(i.exe) == os.path.normcase(preferred_exe) for i in installs

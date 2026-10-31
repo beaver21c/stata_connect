@@ -16,3 +16,4 @@
 - 회귀류: `stata_export(mode="etable", estimates=[...], filename="table2.docx")`
 - 그 밖: `stata_export(mode="custom", code="collect ... / putdocx ...")` — 저장 경로는 `output/tables/`
 - `etable`·`collect`는 Stata 17 이상, `putdocx`는 Stata 15 이상(2차 자료 확인)
+- 기술통계표 `dtable`은 Stata 18 이상 → 17에서는 `table`(17의 새 문법)·`collect`로 작성

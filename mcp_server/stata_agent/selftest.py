@@ -111,11 +111,14 @@ def run_selftest(service, client_name: str | None = None, include_batch: bool = 
         meta["stata"]["expires"] = pub["about"]["expires"] if pub.get("about") else None
         valid = inst.license_valid()
         status = "pass" if valid else ("fail" if valid is False else "manual")
+        remedy = "" if status == "pass" else "라이선스 갱신 또는 about 출력 확인"
+        if inst.supported is False:
+            status, remedy = "fail", "Stata 17 이상 필요(지원 범위 밖)"
         results.append(TestResult(
             "T1", "Stata 설치·라이선스", status,
             f"{inst.edition} {pub.get('version')} / 만료일 {meta['stata']['expires'] or '영구 또는 미확인'}"
             + (f" / {inst.about_error}" if inst.about_error else ""),
-            "" if status == "pass" else "라이선스 갱신 또는 about 출력 확인"))
+            remedy))
 
     # T2 COM 연결(세션 열기 + display)
     opened = service.open_session(str(root), "stata_agent_selftest")

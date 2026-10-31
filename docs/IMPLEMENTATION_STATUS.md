@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -29,13 +29,13 @@
 | P5 재현 대조 | `log_compare.py`, `service.reproduce` | 구현·테스트(가짜 배치) |
 | §13.1 자가 점검 T1~T10 | `selftest.py` | 구현·테스트(가짜 백엔드) |
 | §13.2 점검 보고서 | `report.py` | 구현·테스트(일련번호·등록자 제외 확인) |
-| §9 스킬 | `skills/stata-analysis/SKILL.md`, `references/`, `templates/` | 작성. 템플릿은 코드 출력과 동기화 테스트 |
+| §9 스킬 | `plugins/stata-agent/skills/stata-analysis/` (`SKILL.md`, `references/`, `templates/`) | 작성. 템플릿은 코드 출력과 동기화 테스트. 플러그인 폴더로 이동(§11) |
 | §11 클라이언트 설정 | `client_config.py`, `installer/configure_clients.py` | 구현·테스트. Claude Code 등록 실제 CLI로 확인 [1차 확인] |
 | §5 doctor·COM 등록 | `installer/doctor.ps1`, `installer/register_com.ps1` | 작성 / **실기 미검증(PowerShell 미실행)** |
 | §13.4 자동 테스트 | `tests/`, `.github/workflows/ci.yml` | Ubuntu·Windows × Python 3.10·3.13 |
-| §0 배포(exe·서명·mcpb·통합 설치) | — | **미착수(Phase 5)** |
-| §0.6 안내 사이트 | `site/index.html`, `site/build.py`, `.github/workflows/pages.yml` | 구현: 설명서 + 분석 스킬 ZIP(확인값 포함). 설치 프로그램·`.mcpb` 칸은 "준비 중". **최초 1회 Pages 활성화 필요**(§3.5) |
-| §0.6 Releases | — | **미착수**(설치 프로그램과 함께) |
+| §0 배포(exe·서명·mcpb·통합 설치) | `packaging/`, `setup_wizard.py`, `.github/workflows/package-windows.yml` | **시험판**: 단일 exe·`.mcpb`·설치 도우미 구현, CI Windows 빌드·점검(§11). 코드 서명 미착수, **실기 미검증** |
+| §0.6 안내 사이트 | `site/index.html`, `site/build.py`, `.github/workflows/pages.yml` | 구현: 설치 방법 비교(A 클릭 설치·B Claude Code·Codex) + 시험판 exe·`.mcpb`·스킬 ZIP(확인값) + `latest.json` |
+| §0.6 Releases | — | GitHub Releases 대신 Pages `downloads/`로 배포(세션 권한상 태그·Release 생성 불가, 같은 빌드 산출물 사용) |
 
 ## 3. 이번 작업에서 확인한 사실
 
@@ -168,7 +168,7 @@ stata-agent selftest --client "Claude Code"
 | Phase 2 | Stata 17·18·19.5 각각 doctor·selftest 통과, 만료 라이선스 감지 |
 | Phase 3 | 8개 기법 시나리오(auto·공개 패널자료) 기준값 대조, references 기준값 출처 보강 |
 | Phase 4 | Codex 앱 동일 시나리오 |
-| Phase 5 | 단일 exe 빌드·코드 서명·`.mcpb` 패킹·통합 설치 프로그램·Release 자동화 → 설명서 사이트 다운로드 칸 "준비 중" 해제 |
+| Phase 5 | 단일 exe·`.mcpb`·설치 도우미·플러그인 → **시험판 구현(§11)**. 남은 일: 코드 서명, §11.6 실기 검증, 검증 후 "시험판" 표기 해제 |
 | 미정 | 저장소 라이선스(공개 배포 전 결정 필요) |
 
 ## 9. 참고자료
@@ -188,6 +188,15 @@ stata-agent selftest --client "Claude Code"
 11. Anthropic. (n.d.). *Use skills in Claude*. Claude Help Center. https://support.claude.com/en/articles/12512180-use-skills-in-claude (직접 열람)
 12. Stata Journal (2006), 6(2) 수록 글(저자·제목 미확인, `display` 변수명 동작 서술): https://journals.sagepub.com/doi/pdf/10.1177/1536867X0600600209
 13. Narçiçek, M. R. (2026). *spss-mcp-extended* (Version 2.0.0) [Software]. PyPI. https://pypi.org/project/spss-mcp-extended/ (휠 소스 직접 열람, 코드 미사용·사실 확인용)
+14. Anthropic. (n.d.). *Plugin structure and testing*. Claude Docs. https://claude.com/docs/plugins/build (직접 열람, 2026-10-31)
+15. Anthropic. (n.d.). *Create a marketplace*. Claude Code Docs. https://code.claude.com/docs/en/plugin-marketplaces (직접 열람)
+16. Anthropic. (n.d.). *Advanced setup*. Claude Code Docs. https://code.claude.com/docs/en/setup (직접 열람: 요금제·Windows 요건)
+17. Anthropic. (n.d.). [Claude Code 데스크톱 앱 안내, 문서 제목 미확인]. Claude Code Docs. https://code.claude.com/docs/en/desktop (직접 열람, 문서 앞부분 100,000자까지만)
+18. Anthropic. (n.d.). [Claude Code hooks 안내, 문서 제목 미확인]. Claude Code Docs. https://code.claude.com/docs/en/hooks (직접 열람, 앞부분)
+19. Anthropic. (2026). *@anthropic-ai/mcpb* (Version 2.1.2) [Software]. npm. https://www.npmjs.com/package/@anthropic-ai/mcpb (npm 설치 후 manifest v0.3 스키마 직접 열람·`validate` 실행)
+20. StataCorp. (n.d.). *Stata 17: Tables of estimation results*. https://stata.com/stata17/tables-of-estimation-results (검색 결과 요약으로 확인, 원문 미열람)
+21. StataCorp. (n.d.). *[U] 5 Editions of Stata*. https://www.stata.com/manuals/u5.pdf (검색 결과 요약으로 확인: 17부터 IC → BE, 원문 미열람)
+22. Statalist. (2024). *Help with saving documents using etable* [Forum thread]. https://www.statalist.org/forums/forum/general-stata-discussion/general/1760443-help-with-saving-documents-using-etable (검색 결과 요약으로 확인, 원문 미열람)
 
 ## 10. SPSS 어댑터 (2026-10-30)
 
@@ -206,7 +215,7 @@ stata-agent selftest --client "Claude Code"
 | .sps 규약·00_master.sps | `syntaxfile.py`, `project.py` | 구현·테스트 |
 | 도구 13종·서비스·MCP 서버 | `tool_specs.py`, `service.py`, `server.py` | 구현·테스트, Claude Code CLI stdio 연결 `Connected` [1차 확인] |
 | 자가 점검 T1~T10 | `selftest.py` | 가짜 엔진으로 전 항목 통과 / 실기 미검증 |
-| 스킬 | `skills/spss-analysis/` | 작성, 템플릿 동기화 테스트 |
+| 스킬 | `plugins/spss-agent/skills/spss-analysis/` | 작성, 템플릿 동기화 테스트 |
 | 명령줄 | `spss-agent`(doctor·selftest·init-project·configure·render-templates·serve) | 구현 |
 
 ### 10.3 확인한 사실과 지위
@@ -258,3 +267,78 @@ spss-agent configure --clients claude-code --dry-run
 - `site/spss.html`(SPSS 안내) 추가, `index.html`과 상단 "사용하는 프로그램: Stata / SPSS" 전환으로 연결, 공용 스타일 `site/style.css`
 - 다운로드: SPSS 분석 스킬 ZIP(`spss-analysis-버전.zip`, 확인값 게시), 설치 프로그램은 "준비 중"
 - 페이지에 [미확인]으로 남긴 내용: 지원 SPSS 버전 범위, 재현 기능의 동시 실행 라이선스 영향, SPSS 본체의 SEM 미지원(일반 지식)
+
+## 11. 설치·배포: 패키지 방향과 Claude Code 방향 (2026-10-31)
+
+### 11.1 결정
+- 요청: Stata 실행 검증과 별개로, 처음 쓰는 사람이 사전 준비를 클릭 몇 번으로 끝내도록 패키지·설명 보완 + Claude 유료 이용자의 Claude Code 활용 방향 병행 검토
+- 결론: 두 방향 모두 제공하고 **같은 단일 실행파일**을 공유
+  - 방향 A(클릭 설치, Claude 채팅): `.mcpb` 확장 더블클릭 + 플러그인 마켓플레이스로 스킬 추가 + (선택) 설치 도우미로 COM 등록
+  - 방향 B(Claude Code에게 맡기기): 플러그인의 `/stata-agent:setup` 명령 → Claude Code가 내려받기·확인값 대조·설치 도우미 실행·분석 폴더 준비를 대신 수행
+  - Codex: 설치 도우미 더블클릭(설정 병합·스킬 복사)
+
+### 11.2 구현 대응
+| 구성 | 파일 | 상태 |
+|---|---|---|
+| 단일 실행파일(PyInstaller, 파이썬 불필요) | `packaging/build.py`, `packaging/entry.py` | CI Windows 빌드 + `packaging/smoke_test.py` 10항목. 이 환경(Linux)에서 같은 절차 시험 빌드·점검 통과 [1차 확인] / Windows 산출물은 CI 결과로 확인 |
+| 인자 없는 실행 | `cli._default_argv` | 콘솔(더블클릭) → 설치 도우미, 입력 연결(MCP 클라이언트) → 서버 |
+| 설치 도우미 | `setup_wizard.py`, `stata-agent setup` | 실행파일 고정 위치 복사(`%LOCALAPPDATA%\StataAgent`) → Stata 확인 → COM 등록(UAC, 선택) → 분석 폴더 → 앱 연결. 자동 테스트 / **실기 미검증** |
+| COM 등록 | `stata-agent register-com` | PowerShell `Start-Process -Verb RunAs`로 `<Stata> /Register` / **실기 미검증** |
+| `.mcpb` 확장 | `packaging/build.py manifest()` | manifest v0.3, `binary` 서버, `user_config`(Stata 실행파일·소표본 가림 기준), 도구 목록은 `tool_specs`에서 생성. 공식 CLI `mcpb validate` 통과 [1차 확인] / Claude 앱 설치 화면 **실기 미검증** |
+| 플러그인 마켓플레이스 | `.claude-plugin/marketplace.json`, `plugins/stata-agent`, `plugins/spss-agent` | `claude plugin validate` 통과, 가짜 HOME에서 `marketplace add`·`install`·`details` 확인(Claude Code 2.1.314) [1차 확인] / claude.ai 화면 추가 **실기 미검증** |
+| Claude Code 설치 명령 | `plugins/stata-agent/commands/setup.md` | 명령줄 인자는 테스트가 파서로 검사 / Claude Code 실제 수행 **실기 미검증** |
+| 분석 폴더 `.mcp.json` | `client_config.merge_project_mcp` | `${LOCALAPPDATA}` 확장 사용(경로에 사용자명 미기록) |
+| 실행 전 검사(hook) | `hookguard.py`, `stata-agent hook-guard`, 프로젝트 `.claude/settings.json` | 셸 명령의 `data/`·원자료 확장자·Stata 직접 실행 차단(종료 코드 2). 자동 테스트 / Windows Claude Code에서 **실기 미검증** |
+| 출력 인코딩 | `cli._utf8_when_piped` | 출력이 다른 프로그램으로 넘어가면 UTF-8 고정(Windows 기본 코드페이지 회피) |
+| 사용권 고지 | `THIRD_PARTY_NOTICES.txt` | 빌드 환경의 설치 정보로 자동 생성(stata-gui-mcp MIT 등) |
+| 배포 | `.github/workflows/package-windows.yml`, `pages.yml`, `site/build.py --binaries` | Pages `downloads/`에 exe·`.mcpb`·`latest.json`·SHA256SUMS |
+
+### 11.3 확인한 사실과 지위
+- MCPB [1차 확인]: manifest v0.3 필드·`user_config` 형식(`string|number|boolean|directory|file`), `${__dirname}`·`${user_config.키}` 치환, win32 재정의 예시의 `.exe` 명시(MANIFEST.md, mcpb 2.1.2 스키마). 서명 안 된 묶음은 `mcpb info`에서 "Not signed" 표시 — Claude 앱의 경고 문구는 [미확인]
+- 비워 둔 `user_config` 값의 전달 형태 [미확인] → 서버가 빈 값·채워지지 않은 `${…}`를 미설정으로 처리(`config._env`)
+- 플러그인 [1차 확인]: 매니페스트 위치 `.claude-plugin/plugin.json`, 스킬 `skills/<이름>/SKILL.md`, 최상위 `bin/`이 있으면 claude.ai·Cowork 설치 불가, 로컬 MCP 서버는 채팅에서 무시됨, 플러그인 MCP 도구 이름은 `mcp__plugin_<플러그인>_<서버>__<도구>`
+  - → MCP 서버를 플러그인에 넣지 않음(기존 권한 규칙 `mcp__stata__*`와 이름이 달라짐)
+- Claude Code [1차 확인]: Pro·Max·Team·Enterprise 등 유료 요금제 필요(무료 제외), Windows 기본 설치에 관리자 권한·Git 불필요(Git 없으면 PowerShell 도구 사용), 데스크톱 앱 Code 탭에서 로컬 폴더 세션 가능, 프로젝트 `.mcp.json`은 첫 사용 시 승인 창·`${VAR}` 확장
+- Claude Code 원자료 보호 한계 [1차 확인]: Read·Edit 거부 규칙은 인식된 셸 파일 명령(cat 등)에는 적용되나 스크립트가 직접 파일을 여는 경우에는 미적용, Windows 기본 환경은 sandbox 미지원 → hook으로 보완하나 문자열 조립 등으로 우회 가능 [논리적 추론]
+- 데스크톱 앱 Code 탭에서 `claude` 명령이 PATH에 있는지 [미확인] → 방향 B는 사용자 범위 등록(`claude mcp add`) 대신 분석 폴더 `.mcp.json` 사용
+- PyInstaller 단일 파일 실행파일은 백신 오탐 사례가 알려져 있음 [미확인: 이 저장소 산출물로는 미관찰]
+
+### 11.4 두 방향 비교(설명서 사이트 `#choose`와 같은 내용)
+| 항목 | A 클릭 설치(채팅) | B Claude Code |
+|---|---|---|
+| 사용자 조치 | 파일 1~2개 더블클릭 + 플러그인 추가 | 플러그인 추가 + `/stata-agent:setup` + 승인 |
+| 설치 문제 해결 | 설명서 참조 | Claude가 오류 출력 판독 |
+| 원자료 보호 | MCP 도구 경로만 존재(채팅은 PC 명령 실행 불가) → 더 엄격 [논리적 추론] | 셸 실행 가능 → 거부 규칙 + hook, 우회 가능성 잔존 |
+| 요금제 | Pro 이상 권장 | Pro 이상 필수 [1차 확인] |
+
+### 11.5 설계서 대비 변경점
+- 설계서의 "통합 설치 프로그램(StataAgentSetup.exe)" → 실행파일 하나가 설치 도우미·MCP 서버·hook 역할을 겸함(별도 설치 프로그램 없음)
+- Claude 데스크톱 앱 연결: 설정 파일 직접 병합(Windows 경로 미확인) 대신 `.mcpb` 확장(공식 설치 화면) 우선
+- 스킬 배포: ZIP 업로드 외에 플러그인 마켓플레이스(자동 갱신) 추가. 스킬 원본 위치 `skills/` → `plugins/<플러그인>/skills/`
+
+### 11.6 실기 검증 체크리스트(Windows)
+- [ ] 다운로드한 exe 더블클릭 → SmartScreen 문구·"추가 정보 → 실행" 경로, 한글 콘솔 출력·입력
+- [ ] 설치 도우미: `%LOCALAPPDATA%\StataAgent` 복사, COM 등록 UAC 승인·거절 각각, Codex 설정 병합 결과
+- [ ] `.mcpb` 더블클릭 → Claude 앱 설치 화면, 서명 경고 문구, `user_config` 비워 둘 때 서버 동작, 도구 17종 표시
+- [ ] Claude 앱 Customize › Plugins › Add marketplace(`beaver21c/stata_connect`) → stata-agent 스킬 표시(채팅·Code 탭)
+- [ ] Code 탭에서 `/stata-agent:setup` 전 과정, 새 세션의 `.mcp.json` 승인 창, `${LOCALAPPDATA}` 확장
+- [ ] Code 탭(Windows)에서 hook 실행(`data\…` 읽기 명령 차단 메시지 표시, 일반 명령 통과)
+- [ ] 백신(Windows Defender) 오탐 여부
+
+## 12. Stata 17 호환 점검 (2026-10-31)
+
+| 항목 | 결과 | 근거·지위 |
+|---|---|---|
+| 상류 COM 계층(stata-gui-mcp 1.1.0) | 17/18/19, MP·SE·BE 지원 명시 | 패키지 설명 [1차 확인] |
+| 에디션 이름 | 17부터 IC → BE. 실행파일명에 표기 없을 때 17 이상은 BE로 표시(`StataInstall.edition`) | Stata 매뉴얼 [U] 5 [2차 확인] |
+| BE 실행파일명 | `StataBE-64.exe`·`Stata-64.exe` 모두 탐지 정규식 허용 | 실제 파일명 [미확인] |
+| `about` 해석 | `Stata/MP 17.0` 공개 로그 + `Stata/BE 17.0` 합성 사례 테스트 | 공개 로그 [2차 확인], BE 사례는 합성 |
+| do-file `version` 선언 | 탐지 주 버전으로 선언, 버전 미상 시 `version 17` | 코드 |
+| 표 내보내기 `etable`·`collect` | 17에서 도입 → 사용 가능 | Stata 17 기능 소개 [2차 확인] |
+| `etable … export("경로")` | 17·18 초기판에서 따옴표 안 경로의 공백·쉼표 오해석 보고 → 상대경로(`output/tables/파일명`, 공백·쉼표 금지)만 쓰도록 테스트로 고정 | Statalist [2차 확인], 실기 [미확인] |
+| 서버 내부 코드(스키마·식별자 점검·결과 조회·자가 점검) | `egen tag`·`unab`·`display %24.0g`·`putdocx`(15+) 등 17 이전부터 있는 명령만 사용 | 코드 검토 [논리적 추론] |
+| 스킬 문서 명령 | 18 이상 전용 명령(`dtable` 등) 없음, `xtserial`은 SSC 표기 | 문서 전수 추출 |
+| T4 기준값(auto.dta) | 18·19.5에서 일치 확인, 17은 같은 자료라 같을 것으로 봄 | [논리적 추론], 실기 [미확인] |
+| 17 미만 | `supported=False` → doctor·설치 도우미 경고, 자가 점검 T1 실패 처리 | 테스트 `tests/test_stata17.py` |
+
+남은 실기 항목: Stata 17(BE·SE·MP 중 1개 이상)에서 doctor·selftest T1~T10, `etable` 내보내기, COM 등록(`/Register`)

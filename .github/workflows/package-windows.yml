@@ -1,0 +1,45 @@
+name: package-windows
+
+# Windows 단일 실행파일·.mcpb 빌드 + 점검(Stata 없이). tests·pages 워크플로가 호출.
+# 산출물 이름: windows-package (stata-agent-<버전>.exe, .mcpb, THIRD_PARTY_NOTICES.txt)
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"  # 한글 출력(파이프) 인코딩 오류 방지
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: python -m pip install . pyinstaller==6.22.3
+      - name: Build exe + mcpb
+        run: python packaging/build.py --out dist
+      - name: Validate manifest (공식 mcpb CLI)
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force dist/_check -ErrorAction SilentlyContinue
+          npx -y @anthropic-ai/mcpb@2.1.2 unpack (Get-ChildItem dist/*.mcpb).FullName dist/_check
+          npx -y @anthropic-ai/mcpb@2.1.2 validate dist/_check/manifest.json
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem dist/stata-agent-*.exe).FullName
+          $mcpb = (Get-ChildItem dist/*.mcpb).FullName
+          python packaging/smoke_test.py $exe --mcpb $mcpb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: |
+            dist/stata-agent-*.exe
+            dist/*.mcpb
+            dist/THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error
+          retention-days: 14

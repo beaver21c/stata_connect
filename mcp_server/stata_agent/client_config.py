@@ -128,6 +128,36 @@ def merge_claude_permissions(settings_path: Path, dry_run: bool = False,
     return Change(str(settings_path), "updated" if bak else "created", "권한 규칙 병합", bak)
 
 
+def merge_project_mcp(project_root: Path, server: ServerCommand, name: str = SERVER_NAME,
+                      dry_run: bool = False) -> Change:
+    """분석 폴더의 ``.mcp.json``(Claude Code 프로젝트 범위)에 서버 추가.
+
+    근거(Claude Code 공식 문서 mcp): type 없는 항목 = stdio 서버, command·args·env에 ``${VAR}`` 확장 가능,
+    처음 사용할 때 승인 창 표시. 도구 이름이 ``mcp__<서버>__<도구>``로 유지되어 프로젝트 권한 규칙과 맞음
+    (플러그인에 넣으면 ``mcp__plugin_<플러그인>_<서버>__<도구>``로 바뀜).
+    """
+    path = Path(project_root) / ".mcp.json"
+    data: dict = {}
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8") or "{}")
+        except json.JSONDecodeError as e:
+            return Change(str(path), "error", f"JSON 해석 실패 → 수동 확인 필요: {e}")
+    servers = data.setdefault("mcpServers", {})
+    entry: dict = {"command": server.command, "args": list(server.args)}
+    if server.env:
+        entry["env"] = dict(server.env)
+    if servers.get(name) == entry:
+        return Change(str(path), "unchanged", f"mcpServers.{name} 동일")
+    existed = name in servers
+    servers[name] = entry
+    if dry_run:
+        return Change(str(path), "planned", f"mcpServers.{name} {'교체' if existed else '추가'}")
+    bak = backup(path)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return Change(str(path), "updated" if bak else "created", f"mcpServers.{name} {'교체' if existed else '추가'}", bak)
+
+
 # ── TOML(Codex) ──────────────────────────────────────────────────
 
 def _toml_str(value: str) -> str:
@@ -253,13 +283,15 @@ def register_claude_code(server: ServerCommand, name: str = SERVER_NAME, dry_run
 
 def configure_all(server: ServerCommand, skill_src: Path, clients: list[str],
                   dry_run: bool = False, force_desktop: bool = False,
-                  profile: ClientProfile = STATA_PROFILE) -> list[Change]:
+                  profile: ClientProfile = STATA_PROFILE, install_skills: bool = True) -> list[Change]:
+    """install_skills=False: 스킬은 플러그인(Claude Code)·업로드 등 다른 경로로 설치한 경우(중복 방지)."""
     changes: list[Change] = []
     name = profile.server_name
     if "claude-code" in clients:
         changes.append(register_claude_code(server, name=name, dry_run=dry_run))
         changes.append(merge_claude_permissions(Path.home() / ".claude" / "settings.json", dry_run, profile))
-        changes.append(install_skill(skill_src, Path.home() / ".claude" / "skills", dry_run, profile.skill_name))
+        if install_skills:
+            changes.append(install_skill(skill_src, Path.home() / ".claude" / "skills", dry_run, profile.skill_name))
     if "claude-desktop" in clients:
         path = claude_desktop_config_path()
         if path is None:
@@ -271,5 +303,6 @@ def configure_all(server: ServerCommand, skill_src: Path, clients: list[str],
     if "codex" in clients:
         changes.append(merge_codex_config(codex_home() / "config.toml", server, name=name, dry_run=dry_run,
                                           read_only_tools=profile.read_only_tools))
-        changes.append(install_skill(skill_src, Path.home() / ".agents" / "skills", dry_run, profile.skill_name))
+        if install_skills:
+            changes.append(install_skill(skill_src, Path.home() / ".agents" / "skills", dry_run, profile.skill_name))
     return changes

@@ -21,3 +21,6 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Test (Stata 불필요 항목)
         run: python -m pytest -q
+
+  package-windows:
+    uses: ./.github/workflows/package-windows.yml

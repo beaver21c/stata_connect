@@ -313,7 +313,7 @@ def test_in_memory_roundtrip(settings, project, fake_home, monkeypatch):
 
 
 def test_skill_and_templates():
-    skill = ROOT / "skills" / "spss-analysis"
+    skill = ROOT / "plugins" / "spss-agent" / "skills" / "spss-analysis"
     text = (skill / "SKILL.md").read_text(encoding="utf-8")
     assert text.startswith("---\nname: spss-analysis\ndescription: ")
     desc = text.split("description: ", 1)[1].split("\n", 1)[0]

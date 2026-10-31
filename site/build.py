@@ -5,14 +5,18 @@
 - 분석 스킬 ZIP 생성(Stata·SPSS): Claude 앱 업로드 규격에 맞춰 ZIP 최상위에 스킬 폴더
   (Claude 공식 안내: "Upload a ZIP file containing your skill folder")
 - 같은 내용이면 같은 확인값(SHA-256)이 나오도록 ZIP 항목 순서·시각 고정
+- --binaries: Windows 빌드 산출물(실행파일·.mcpb·사용권 고지)을 downloads/에 넣고 확인값·
+  ``latest.json``(Claude Code 설치 명령 /stata-agent:setup이 읽는 배포 정보) 생성.
+  없으면(로컬 미리보기) 내려받기 버튼을 '배포 빌드에서 생성'으로 표시
 
-사용: python site/build.py [--out _site]
+사용: python site/build.py [--out _site] [--binaries 폴더]
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import shutil
 import zipfile
@@ -21,12 +25,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE_SRC = ROOT / "site"
-SKILL_DIR = ROOT / "skills" / "stata-analysis"
-SPSS_SKILL_DIR = ROOT / "skills" / "spss-analysis"
+SKILL_DIR = ROOT / "plugins" / "stata-agent" / "skills" / "stata-analysis"
+SPSS_SKILL_DIR = ROOT / "plugins" / "spss-agent" / "skills" / "spss-analysis"
 PAGES = ("index.html", "spss.html")
 ASSETS = ("style.css",)
 VERSION_FILE = ROOT / "mcp_server" / "stata_agent" / "__init__.py"
 REPO_URL = "https://github.com/beaver21c/stata_connect"
+SITE_URL = "https://beaver21c.github.io/stata_connect/"
+PENDING = "배포 빌드에서 생성"
 _FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 _EXCLUDE = {"__pycache__", ".DS_Store"}
 
@@ -66,19 +72,48 @@ def _zip_values(prefix: str, skill_dir: Path, version: str, downloads: Path) -> 
              f"{prefix}SKILL_SHA256": sha}, f"{sha}  {zip_name}\n")
 
 
-def build(out: Path) -> dict:
+def _binary_values(prefix: str, name: str, binaries: Path | None, downloads: Path) -> tuple[dict, str, dict | None]:
+    """실행파일·.mcpb 한 개의 자리표시자 값, SHA256SUMS 줄, latest.json 항목."""
+    src = binaries / name if binaries else None
+    if src is None or not src.is_file():
+        button = f'<a class="btn" aria-disabled="true" role="link" tabindex="-1">{PENDING}</a>'
+        return ({f"{prefix}_FILE": name, f"{prefix}_BUTTON": button, f"{prefix}_SHA256": PENDING}, "", None)
+    data = src.read_bytes()
+    shutil.copy2(src, downloads / name)
+    sha = hashlib.sha256(data).hexdigest()
+    button = f'<a class="btn" href="downloads/{name}" download>받기 ({human_size(len(data))})</a>'
+    entry = {"file": name, "url": f"{SITE_URL}downloads/{name}", "sha256": sha, "size": len(data)}
+    return ({f"{prefix}_FILE": name, f"{prefix}_BUTTON": button, f"{prefix}_SHA256": sha}, f"{sha}  {name}\n", entry)
+
+
+def build(out: Path, binaries: Path | None = None) -> dict:
     version = read_version()
     if out.exists():
         shutil.rmtree(out)
     downloads = out / "downloads"
     stata_vals, stata_sum = _zip_values("", SKILL_DIR, version, downloads)
     spss_vals, spss_sum = _zip_values("SPSS_", SPSS_SKILL_DIR, version, downloads)
-    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum, encoding="utf-8")
+    exe_vals, exe_sum, exe_entry = _binary_values("EXE", f"stata-agent-{version}.exe", binaries, downloads)
+    mcpb_vals, mcpb_sum, mcpb_entry = _binary_values("MCPB", f"stata-agent-{version}.mcpb", binaries, downloads)
+    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum + exe_sum + mcpb_sum, encoding="utf-8")
+    notices = binaries / "THIRD_PARTY_NOTICES.txt" if binaries else None
+    if notices is not None and notices.is_file():
+        shutil.copy2(notices, downloads / "THIRD_PARTY_NOTICES.txt")
+    else:
+        (downloads / "THIRD_PARTY_NOTICES.txt").write_text(f"{PENDING}(실행파일에 포함된 외부 구성요소 사용권 고지)\n",
+                                                           encoding="utf-8")
+    if exe_entry:
+        latest = {"version": version, "exe": exe_entry, "mcpb": mcpb_entry,
+                  "skill_zip": f"{SITE_URL}downloads/{stata_vals['SKILL_ZIP']}"}
+        (downloads / "latest.json").write_text(json.dumps(latest, ensure_ascii=False, indent=2) + "\n",
+                                               encoding="utf-8")
 
     values = {
         "VERSION": version,
         **stata_vals,
         **spss_vals,
+        **exe_vals,
+        **mcpb_vals,
         "BUILD_DATE": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "REPO_URL": REPO_URL,
     }
@@ -99,10 +134,12 @@ def build(out: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="설명서 사이트 빌드")
     parser.add_argument("--out", default=str(ROOT / "_site"))
+    parser.add_argument("--binaries", help="Windows 빌드 산출물 폴더(실행파일·.mcpb·사용권 고지)")
     args = parser.parse_args()
-    values = build(Path(args.out))
+    values = build(Path(args.out), Path(args.binaries) if args.binaries else None)
     print(f"빌드 완료: {args.out} (v{values['VERSION']}, {values['SKILL_ZIP']} {values['SKILL_SIZE']}, "
-          f"{values['SPSS_SKILL_ZIP']} {values['SPSS_SKILL_SIZE']})")
+          f"{values['SPSS_SKILL_ZIP']} {values['SPSS_SKILL_SIZE']}, 실행파일 "
+          f"{'포함' if values['EXE_SHA256'] != PENDING else '없음'})")
 
 
 if __name__ == "__main__":

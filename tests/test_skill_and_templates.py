@@ -4,7 +4,7 @@ from pathlib import Path
 from stata_agent.project import init_project, rendered_templates
 from stata_agent.tool_specs import TOOLS
 
-SKILL_DIR = Path(__file__).resolve().parents[1] / "skills" / "stata-analysis"
+SKILL_DIR = Path(__file__).resolve().parents[1] / "plugins" / "stata-agent" / "skills" / "stata-analysis"
 
 
 def _frontmatter(text):

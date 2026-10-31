@@ -13,9 +13,11 @@
 |---|---|
 | MCP 서버(도구 17종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
-| 사용자 설명서 사이트(GitHub Pages, Stata·SPSS 두 페이지) + 분석 스킬 ZIP 2종 다운로드 | 구현(설치 프로그램 칸은 "준비 중" 표시) |
+| 사용자 설명서 사이트(GitHub Pages, Stata·SPSS 두 페이지): 설치 방법 비교(클릭 설치·Claude Code·Codex) + 다운로드 | 구현 |
+| **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버)·Claude 데스크톱 확장 `.mcpb`·플러그인 마켓플레이스(`/stata-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11) |
+| Stata 17 호환 | 코드·스킬 점검 + 17 미만 경고, 실기 미검증 (§12) |
 | **SPSS 어댑터**(화면 없는 SPSS 엔진, 도구 13종, 문법 guard, 자가 점검, 스킬) | 구현 + 자동 테스트(가짜 `spss` 모듈로 엔진 통신까지), **실제 SPSS 미검증** (IMPLEMENTATION_STATUS §10) |
-| 단일 exe·코드 서명·`.mcpb`·통합 설치 프로그램·Releases | 미착수(설계서 Phase 5) |
+| 코드 서명·SPSS 실행파일 | 미착수 |
 
 ## 구조
 
@@ -33,11 +35,16 @@ stata_connect/
 │   ├── session_log.py           AI 사용 기록·공개문 초안
 │   ├── log_compare.py           재현 수치 대조
 │   ├── selftest.py · report.py  자가 점검 T1~T10·점검 보고서
-│   ├── client_config.py         Claude Code·Desktop·Codex 설정 병합
+│   ├── client_config.py         Claude Code·Desktop·Codex 설정 병합(분석 폴더 .mcp.json 포함)
+│   ├── setup_wizard.py          설치 도우미(실행파일 더블클릭 시)
+│   ├── hookguard.py             Claude Code 셸 명령 실행 전 검사
+│   ├── resources.py             실행 형태별 경로·명령
 │   └── cli.py                   stata-agent 명령
 ├── mcp_server/spss_agent/       SPSS 어댑터(엔진·guard·서비스·MCP 서버 spss)
-├── skills/stata-analysis/       SKILL.md·기법별 references·templates
-├── skills/spss-analysis/        SPSS용 스킬
+├── .claude-plugin/              플러그인 마켓플레이스(marketplace.json)
+├── plugins/stata-agent/         플러그인: skills/stata-analysis(스킬) + commands/setup.md(Claude Code 설치 명령)
+├── plugins/spss-agent/          플러그인: skills/spss-analysis
+├── packaging/                   단일 실행파일·.mcpb 빌드(build.py)·점검(smoke_test.py)
 ├── installer/                   doctor.ps1·register_com.ps1·configure_clients.py
 ├── site/                        사용자 설명서 사이트(index.html·spss.html·style.css·build.py)
 ├── docs/                        설계서·구현 현황
@@ -53,6 +60,11 @@ stata-agent doctor                     # Stata 설치·라이선스·COM 점검
 stata-agent init-project ./예제 --example
 stata-agent configure --clients claude-code,codex --dry-run
 stata-agent-mcp                        # MCP 서버(stdio)
+stata-agent setup --dry-run            # 설치 도우미 점검 실행
+
+# 배포 파일(Windows): 단일 exe + .mcpb
+python -m pip install pyinstaller==6.22.3
+python packaging/build.py && python packaging/smoke_test.py dist/stata-agent-0.1.0.exe
 
 # SPSS
 spss-agent doctor                      # SPSS 설치·내장 Python 탐지

@@ -81,18 +81,22 @@ h3{font-size:17px;margin:22px 0 8px}
 .chip{display:inline-block;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
 .chip.ok{background:var(--ok-soft);color:var(--ok)}
 .chip.wait{background:var(--warn-soft);color:var(--warn)}
+.chip.trial{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
 
 /* 탭(요금제) */
 .tabs{margin-top:6px}
 .tabs input{position:absolute;opacity:0;pointer-events:none}
 .tabbar{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px}
 .tabbar label{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabbar{flex-wrap:wrap}
 #t-claude:checked ~ .tabbar label[for="t-claude"],
+#t-code:checked ~ .tabbar label[for="t-code"],
 #t-codex:checked ~ .tabbar label[for="t-codex"]{color:var(--fg);border-bottom-color:var(--accent)}
 #t-claude:focus-visible ~ .tabbar label[for="t-claude"],
+#t-code:focus-visible ~ .tabbar label[for="t-code"],
 #t-codex:focus-visible ~ .tabbar label[for="t-codex"]{outline:2px solid var(--accent);outline-offset:2px}
 .panel{display:none}
-#t-claude:checked ~ #p-claude,#t-codex:checked ~ #p-codex{display:block}
+#t-claude:checked ~ #p-claude,#t-code:checked ~ #p-code,#t-codex:checked ~ #p-codex{display:block}
 
 /* 단계 */
 ol.steps{list-style:none;padding:0;margin:0;counter-reset:s}
@@ -117,6 +121,26 @@ ol.steps b.t{display:block;font-size:16px}
 .tbl th,.tbl td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top}
 .tbl th{font-size:13px;color:var(--muted);font-weight:600}
 .tbl td:first-child{white-space:nowrap;color:var(--muted);font-family:Consolas,ui-monospace,monospace;font-size:13px}
+
+/* 방법 비교 */
+.cmp-wrap{overflow-x:auto;margin:6px 0 10px}
+.cmp{width:100%;min-width:560px;border-collapse:collapse;font-size:14.5px}
+.cmp th,.cmp td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top}
+.cmp thead th{font-size:13.5px;color:var(--fg);font-weight:700}
+.cmp tbody th{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 4px}
+.pick>div{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+.pick b{display:block;margin-bottom:4px}
+@media (max-width:680px){
+  .pick{grid-template-columns:1fr}
+  .cmp{min-width:0}
+  .cmp thead{display:none}
+  .cmp tr{display:block;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px;background:var(--card)}
+  .cmp tbody th,.cmp td{display:block;border:0;padding:4px 0}
+  .cmp tbody th{font-size:14px;color:var(--fg);font-weight:700;padding-bottom:2px}
+  .cmp td::before{content:attr(data-label);display:block;font-size:12.5px;font-weight:600;color:var(--muted)}
+}
+code.cmd{display:inline-block;padding:2px 7px;border-radius:6px;background:var(--soft);border:1px solid var(--line);word-break:break-all}
 
 /* 질문 */
 details{border:1px solid var(--line);border-radius:10px;padding:0 14px;margin:8px 0;background:var(--card)}

@@ -1,0 +1,10 @@
+{
+  "name": "spss-agent",
+  "displayName": "SPSS 에이전트",
+  "version": "0.1.0",
+  "description": "SPSS가 계산하고 AI는 문법(.sps) 작성·결과 판독·해석을 맡는 분석 스킬",
+  "author": { "name": "beaver21c", "url": "https://github.com/beaver21c" },
+  "homepage": "https://beaver21c.github.io/stata_connect/spss.html",
+  "repository": "https://github.com/beaver21c/stata_connect",
+  "keywords": ["spss", "statistics", "research"]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "stata-connect",
+  "description": "Stata·SPSS 분석 에이전트 — 통계 패키지가 계산하고 AI는 코드 작성·결과 판독을 맡는 분석 스킬과 설치 명령",
+  "owner": {
+    "name": "beaver21c",
+    "url": "https://github.com/beaver21c"
+  },
+  "plugins": [
+    {
+      "name": "stata-agent",
+      "source": "./plugins/stata-agent",
+      "description": "Stata 분석 스킬(stata-analysis) + Claude Code 설치 명령(/stata-agent:setup)"
+    },
+    {
+      "name": "spss-agent",
+      "source": "./plugins/spss-agent",
+      "description": "SPSS 분석 스킬(spss-analysis)"
+    }
+  ]
+}
