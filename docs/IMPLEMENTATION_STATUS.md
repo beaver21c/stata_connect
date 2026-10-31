@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -197,6 +197,12 @@ stata-agent selftest --client "Claude Code"
 20. StataCorp. (n.d.). *Stata 17: Tables of estimation results*. https://stata.com/stata17/tables-of-estimation-results (검색 결과 요약으로 확인, 원문 미열람)
 21. StataCorp. (n.d.). *[U] 5 Editions of Stata*. https://www.stata.com/manuals/u5.pdf (검색 결과 요약으로 확인: 17부터 IC → BE, 원문 미열람)
 22. Statalist. (2024). *Help with saving documents using etable* [Forum thread]. https://www.statalist.org/forums/forum/general-stata-discussion/general/1760443-help-with-saving-documents-using-etable (검색 결과 요약으로 확인, 원문 미열람)
+23. IBM. (n.d.). *Python Reference Guide for IBM SPSS Statistics* (Version 26) [PDF]. https://www.ibm.com/docs/en/SSLVMB_26.0.0/pdf/en/Python_Reference_Guide_for_IBM_SPSS_Statistics.pdf (검색 결과 요약으로 확인: 2.7·3.4 동봉, 원문 미열람 — 이 작업 환경에서 www.ibm.com 접속 불가)
+24. IBM. (n.d.). *Running Python code with Python* (Version 27) [Documentation]. https://ibm.com/support/knowledgecenter/SSLVMB_27.0.0/statistics_python_plugin_uber_project_ddita/spss/programmability_option/python_uber_python3.html (검색 결과 요약으로 확인: 27부터 Python 2.x 미동봉, 원문 미열람)
+25. IBM Community. (n.d.). *Get Essentials for SPSS* [Library document]. https://community.ibm.com/community/user/viewdocument/get-essentials-for-spss?CommunityKey=886b6874-0fb1-402c-8243-c70ef8179a99&tab=librarydocuments (검색 결과 요약으로 확인: 22부터 Python Essentials 본 설치 통합, 원문 미열람)
+26. IBM. (n.d.). *spss.StartSPSS Function (Python)* (Version 26) [Documentation]. https://www.ibm.com/support/knowledgecenter/en/SSLVMB_26.0.0/statistics_python_plugin_uber_project_ddita/spss/programmability_option/python_package_startspss.html (검색 결과 요약으로 확인: 세션이 있으면 동작 없음, 원문 미열람)
+27. IBM. (n.d.). *OMS* (Version 24) [Command syntax reference]. https://www.ibm.com/support/knowledgecenter/SSLVMB_24.0.0/spss/base/syn_oms.html (검색 결과 요약으로 확인: 형식 도입 버전, 원문 미열람)
+28. IBM. (n.d.). *ES Subcommand (T-TEST command)* [Command syntax reference]. https://www.ibm.com/support/knowledgecenter/SSLVMB_sub/statistics_reference_project_ddita/spss/base/syn_t-test_es.html (검색 결과 요약으로 확인, 원문 미열람)
 
 ## 10. SPSS 어댑터 (2026-10-30)
 
@@ -208,7 +214,7 @@ stata-agent selftest --client "Claude Code"
 ### 10.2 구현 대응
 | 구성 | 파일 | 상태 |
 |---|---|---|
-| 엔진(SPSS 내장 Python 서브프로세스, JSON 줄 통신, OMS 텍스트 수집, 사전·고유값 조회) | `engine_script.py`, `engine.py` | 구현. 가짜 `spss` 모듈로 서브프로세스 통신·오류·시간 초과·재기동까지 테스트 / **실제 SPSS 미검증** |
+| 엔진(SPSS 내장 Python 서브프로세스, JSON 줄 통신, OMS 텍스트 수집, 사전·고유값 조회) | `engine_script.py`, `engine.py` | 구현. 가짜 `spss` 모듈로 서브프로세스 통신·오류·시간 초과·재기동까지 테스트. Python 2.7·3.4 겸용(§13) / **실제 SPSS 미검증** |
 | 설치 탐지 | `discovery.py` | 구현·테스트(임시 폴더) / 실제 설치 미검증 |
 | 문법 guard(S01~S15) | `guard/policy.py` | 구현·차단/허용/승인 사례 테스트 |
 | 출력 필터 | `guard/output_filter.py` | 구현(합성 출력 기준) / **OMS TEXT 실제 형식 미확인** |
@@ -216,7 +222,7 @@ stata-agent selftest --client "Claude Code"
 | 도구 13종·서비스·MCP 서버 | `tool_specs.py`, `service.py`, `server.py` | 구현·테스트, Claude Code CLI stdio 연결 `Connected` [1차 확인] |
 | 자가 점검 T1~T10 | `selftest.py` | 가짜 엔진으로 전 항목 통과 / 실기 미검증 |
 | 스킬 | `plugins/spss-agent/skills/spss-analysis/` | 작성, 템플릿 동기화 테스트 |
-| 명령줄 | `spss-agent`(doctor·selftest·init-project·configure·render-templates·serve) | 구현 |
+| 명령줄 | `spss-agent`(doctor·selftest·init-project·configure·render-templates·serve·setup·hook-guard) | 구현 |
 
 ### 10.3 확인한 사실과 지위
 - SPSS 내장 Python(`<설치폴더>\Python3\python.exe`)에서 `import spss` → `spss.StartSPSS()` → `spss.Submit(문법 문자열)` → `spss.GetLastErrorLevel()` → `spss.StopSPSS()` 흐름, SPSS가 표준출력에 잡음을 내므로 파일로 응답 [2차 확인: 제3자 구현 소스]
@@ -224,7 +230,7 @@ stata-agent selftest --client "Claude Code"
 - 설치 경로 `Program Files\IBM\SPSS Statistics\<버전>\stats.exe`, 레지스트리 `SOFTWARE\IBM\SPSS Statistics\<버전>`의 `InstallationDirectory` [2차 확인: 제3자 구현 소스]. 구버전 경로 `IBM\SPSS\Statistics\<버전>`은 [논리적 추론]
 - external mode는 일반 사용자 화면 없이 새 인스턴스로 동작 [2차 확인: IBM Community 게시글]
 - `spss.GetVariableName·GetVariableLabel·GetVariableType·GetVariableFormat·GetVariableMeasurementLevel·GetCaseCount`, `spss.Cursor(...).fetchall()` [미확인: IBM 원문 미열람]
-- OMS 형식 `DOC·XLSX·HTML·PDF`(내보내기), `INSERT ... SYNTAX=INTERACTIVE ERROR=STOP`, 명령어 3글자 약어 허용 [미확인: 일반 지식]
+- OMS 형식: DOC·XLS·PDF는 17부터, XLSX는 21부터, DOC는 28.0.1 전까지 .doc 형식 [2차 확인: IBM OMS 문서 검색 요약]. `INSERT ... SYNTAX=INTERACTIVE ERROR=STOP`, 명령어 3글자 약어 허용 [미확인: 일반 지식]
 - 시험 중 결함 2건 발견·수정: BOM 포함 .sps를 INSERT로 불러올 때 첫 명령 미검사, 실패 명령의 오류 수준이 정리 명령에 덮어써짐
 
 ### 10.4 Stata판과 다른 점
@@ -342,3 +348,52 @@ spss-agent configure --clients claude-code --dry-run
 | 17 미만 | `supported=False` → doctor·설치 도우미 경고, 자가 점검 T1 실패 처리 | 테스트 `tests/test_stata17.py` |
 
 남은 실기 항목: Stata 17(BE·SE·MP 중 1개 이상)에서 doctor·selftest T1~T10, `etable` 내보내기, COM 등록(`/Register`)
+
+## 13. SPSS 배포·SPSS 22 호환 (2026-10-31)
+
+### 13.1 결정
+- 요청: Stata판(§11)과 같은 배포 구성을 SPSS에도 적용 + SPSS 22까지 대응
+- 결론: 실행파일·`.mcpb`·설치 도우미·Claude Code 설치 명령·실행 전 검사를 Stata판과 같은 구조로 제공(공용 코드 `stata_agent.resources.AppPaths`·`hookguard`·`setup_wizard` 보조 함수)
+- 22 대응의 핵심 변수: SPSS 버전별 동봉 Python → 엔진 스크립트를 Python 2.7·3.4·3.x 겸용으로 작성
+
+### 13.2 버전별 동봉 Python과 엔진 선택
+| SPSS | 동봉 Python | 엔진이 쓰는 Python | 지위 |
+|---|---|---|---|
+| 22·23 | 2.7 | `<설치폴더>\Python\python.exe` | 버전 [2차 확인], 폴더 이름 [미확인] |
+| 24~26 | 2.7 + 3.4 | `Python3`(3.4) 우선, 없으면 `Python`(2.7) | 버전 [2차 확인], 3.x 폴더 `Python3` [2차 확인: 제3자 구현] |
+| 27~ | 3.x만(최신 문서 3.10) | `Python3` | [2차 확인] |
+| 공통 | — | `SPSS_AGENT_PYTHON`(확장 설정 "SPSS 동봉 Python")으로 직접 지정 가능 | — |
+
+### 13.3 구현 대응
+| 구성 | 파일 | 상태 |
+|---|---|---|
+| 엔진 스크립트 2.7·3.4 겸용 | `engine_script.py` | 인코딩 선언, readline 반복, 바이트·유니코드 정리(`_text`), ASCII JSON 바이트 기록, 실행 Python 계열의 spss 모듈 폴더만 추가 |
+| 금지 문법 정적 검사 | `tests/test_spss_legacy.py` | f-문자열·형 주석·키워드 전용 인자·`open(encoding=)`·`exist_ok` 등 검사(엔진·가짜 spss·점검 스크립트) |
+| 구버전 Python 실제 실행 | `tests/legacy/run_engine_check.py`, CI `spss-legacy-python` | 이 환경 3.8·3.10·3.13 통과 [1차 확인]. 2.7·3.4는 CI Docker 이미지(python:2.7-slim·3.4-slim)에서 실행 — 이 환경에서는 외부 실행파일 실행이 보안 정책으로 막혀 CI 결과로 확인 |
+| 탐지 | `discovery.py` | Python 폴더 후보(Python3→Python→Python27), 레지스트리 키 4종(`IBM\SPSS Statistics`·`IBM\SPSS\Statistics`·각 WOW6432Node), 값 `InstallationDirectory`·`InstallDir`, 지원 하한 22(`supported`) |
+| 출력 인코딩 | `backend.read_output` | UTF-8 실패 시 시스템 인코딩(코드페이지 모드 대비) [논리적 추론] |
+| 표 내보내기 | `service.export` | `.doc`·`.xls` 추가, 27 이하에서 `.docx` 요청은 `.doc`로 저장·안내, 28은 안내만 |
+| 자가 점검·doctor | `selftest.py`, `cli.py` | 22 미만 T1 실패, 동봉 Python 계열 표시, `doctor --json` |
+| 실행파일·확장 | `packaging/build.py`(제품 `spss`), `packaging/entry_spss.py` | `spss-agent-<버전>.exe`·`.mcpb`(user_config: SPSS 설치 폴더·동봉 Python). 이 환경 시험 빌드에서 점검 11항목 통과(실행파일 → 엔진 → 가짜 spss 왕복 포함) [1차 확인] |
+| 설치 도우미 | `spss_agent/setup_wizard.py` | 4단계(실행파일·SPSS 확인·분석 폴더·앱 연결), 화면 연동 단계 없음 |
+| Claude Code 설치 명령 | `plugins/spss-agent/commands/setup.md` | `latest.json`의 `spss` 항목 사용, 인자는 테스트가 파서로 검사 |
+| 실행 전 검사 | `hookguard.py`(공용) | SPSS 직접 실행(`stats.exe`·`runsyntx`·`import spss`·`IBM\SPSS` 경로) 차단 추가 |
+| 스킬 | `plugins/spss-agent/skills/spss-analysis/` | 버전 조건: 효과크기 `/ES`는 27 이상(22~26은 `GLM /PRINT=ETASQ` 등), 내보내기 형식 |
+| 설명서 | `site/spss.html` | Stata 페이지와 같은 구성(방법 비교·A·B·Codex 탭), SPSS 22 이상·동봉 Python 안내 |
+
+### 13.4 문법 호환 점검(22 기준)
+| 항목 | 결과 | 지위 |
+|---|---|---|
+| 서버 내부 문법(OMS·DATA LIST·DESCRIPTIVES·CORRELATIONS·SAVE·GET FILE·DATASET NAME·CD) | 22 이전부터 있는 명령 | [논리적 추론: 일반 지식] |
+| 스킬 문법(FREQUENCIES·EXAMINE·T-TEST·ONEWAY·NPAR TESTS·CORRELATIONS·REGRESSION·LOGISTIC REGRESSION·PLUM·GENLIN·MIXED) | 22에 있음 | [논리적 추론] |
+| 효과크기 `T-TEST /ES`·`ONEWAY /ES` | 27부터 → 스킬에 조건 명시 | [2차 확인] |
+| OMS 내보내기 | XLSX 21+, DOC는 28.0.1 전 .doc → 코드 반영 | [2차 확인] |
+| Python 3 처리기 | 24~26에서 유니코드 모드 필요 | [2차 확인: IBM 24 문서 검색 요약] — 코드페이지 모드에서 3.4 엔진 동작 [미확인] |
+
+### 13.5 실기 검증 체크리스트(Windows + SPSS)
+- [ ] SPSS 22(또는 23): 동봉 Python 폴더 이름(`Python`)·`python.exe` 위치, 엔진 기동(2.7), 한글 경로·한글 변수 라벨
+- [ ] SPSS 24~26: `Python3`(3.4) 엔진 기동, 코드페이지 모드에서의 동작
+- [ ] SPSS 27 이상: 기존 §10.6 항목
+- [ ] 32비트판(22 등) 탐지(`Program Files (x86)`, WOW6432Node)
+- [ ] `.doc` 내보내기(27 이하)·`.xlsx`(22)
+- [ ] `spss-agent-<버전>.exe` 더블클릭·`.mcpb` 설치 화면·`/spss-agent:setup` 전 과정

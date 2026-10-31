@@ -1,4 +1,4 @@
-"""Claude Code 실행 전 검사(PreToolUse hook) — 셸 명령이 원자료·Stata를 직접 다루지 못하게 막음.
+"""Claude Code 실행 전 검사(PreToolUse hook) — 셸 명령이 원자료·Stata·SPSS를 직접 다루지 못하게 막음(공용).
 
 배경(Claude Code 공식 문서 permissions·hooks, 2026-10 확인)
 - 프로젝트 설정의 ``Read(/data/**)`` 거부 규칙은 Claude의 파일 도구와 Claude Code가 인식하는
@@ -37,8 +37,19 @@ _STATA_RUN = re.compile(
     re.IGNORECASE,
 )
 
-REASON_DATA = "원자료 보호: data/ 폴더나 원자료 파일(.dta·.sav 등)을 셸 명령으로 다루지 않음 → stata 도구(stata_schema·stata_run_section 등) 사용"
+# SPSS 직접 실행(GUI·배치·문법 실행기·외부 모드 Python) — spss 도구의 guard·출력 필터를 거치지 않으므로 차단
+_SPSS_RUN = re.compile(
+    r"\bstats\.exe\b|(?:^|[;&|(]\s*)stats\s"
+    r"|\bstatisticsb\b|\bruns(?:yn|ynt)x(?:\.exe)?\b"
+    r"|\bimport\s+spss\b|\bfrom\s+spss\b|\bspss\.(?:submit|startspss|cursor)\b"
+    r"|ibm[\\/]+spss",
+    re.IGNORECASE,
+)
+
+REASON_DATA = ("원자료 보호: data/ 폴더나 원자료 파일(.dta·.sav 등)을 셸 명령으로 다루지 않음 "
+               "→ 분석 도구(stata_schema·spss_schema 등) 사용")
 REASON_STATA = "Stata 직접 실행 금지: 셸에서 Stata를 실행하면 원자료 보호 검사를 거치지 않음 → stata 도구(stata_run_section·stata_run_dofile) 사용"
+REASON_SPSS = "SPSS 직접 실행 금지: 셸에서 SPSS·SPSS용 Python을 실행하면 원자료 보호 검사를 거치지 않음 → spss 도구(spss_run_section 등) 사용"
 
 
 def check_command(command: str) -> str | None:
@@ -47,6 +58,8 @@ def check_command(command: str) -> str | None:
         return None
     if _STATA_RUN.search(command):
         return REASON_STATA
+    if _SPSS_RUN.search(command):
+        return REASON_SPSS
     if _DATA_PATH.search(command) or _DATA_CD.search(command) or _RAW_FILE.search(command):
         return REASON_DATA
     return None

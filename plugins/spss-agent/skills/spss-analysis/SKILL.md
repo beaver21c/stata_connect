@@ -54,6 +54,9 @@ description: SPSS Statistics를 MCP 도구(spss 서버, 화면 없는 SPSS 엔�
 - **실행 시간 초과**(기본 900초): 엔진이 종료되고 세션 상태(열린 자료)가 사라짐 → 자료 불러오기부터 다시 실행.
 - **SPSS 오류 수준**: 2 = 경고(출력 확인), 3 이상 = 오류(명령 미실행 가능) → 오류 메시지를 보고 문법 수정.
 - **연결 점검 요청**: `spss_selftest` 결과표를 보여 주고 실패 항목 조치를 안내. 오류 보고에는 점검 보고서만 첨부.
+- **SPSS 버전**: 지원 범위는 22 이상. 문법을 쓰기 전 `spss_status`의 버전을 확인하고, 이후 버전에서 추가된 기능은 그 버전 이상일 때만 사용.
+  - 27 이상: `T-TEST`·`ONEWAY`의 효과크기(`/ES`). 22~26에는 없음 → 효과크기가 필요하면 `GLM ... /PRINT ETASQ`(편에타제곱) 등 SPSS가 산출하는 방법을 연구자와 정하고, AI가 직접 계산하지 않음
+  - 표 내보내기: 27 이하는 Word가 `.doc`(97-2003) 형식으로 저장됨(도구가 자동 변경), 29에서 `.xlsx`가 비어 있으면 `.xls`로 다시 요청
 
 ## 6. 기법별 점검표 (references/)
 기술통계 `descriptive.md` · t검정 `ttest.md` · 분산분석 `anova.md` · 상관 `correlation.md` · 회귀 `regression.md` · 비선형·다층 `nonlinear.md` · SEM `sem.md` · 보고 양식 `reporting.md`

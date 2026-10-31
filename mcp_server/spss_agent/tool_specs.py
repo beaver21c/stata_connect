@@ -56,7 +56,7 @@ TOOLS: tuple[ToolSpec, ...] = (
               "tail_lines": {"type": "integer"}}),
     ToolSpec("spss_export", "지정 섹션을 다시 실행하며 표를 output/tables에 Word·Excel·HTML·PDF로 저장(OMS).", False,
              {"filename": _FILENAME, "section_id": {"type": "string"},
-              "output": {"type": "string", "description": "output/tables 안 파일명(.docx/.xlsx/.html/.pdf)"},
+              "output": {"type": "string", "description": "output/tables 안 파일명(.docx/.doc/.xlsx/.xls/.html/.pdf). SPSS 27 이하는 .docx 요청을 .doc로 저장"},
               "acknowledge_risks": _ACK}, ("filename", "section_id", "output")),
     ToolSpec("spss_reproduce", "새 SPSS 엔진에서 00_master.sps 목록 순서대로 다시 실행 → 대화형 출력(output/logs)과 수치 비교 보고.", False),
     ToolSpec("spss_usage_summary", "AI 사용 기록(.spss-agent/history.jsonl) 집계와 논문 연구방법 절 공개문 초안 반환.", True,

@@ -14,10 +14,11 @@
 | MCP 서버(도구 17종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
 | 사용자 설명서 사이트(GitHub Pages, Stata·SPSS 두 페이지): 설치 방법 비교(클릭 설치·Claude Code·Codex) + 다운로드 | 구현 |
-| **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버)·Claude 데스크톱 확장 `.mcpb`·플러그인 마켓플레이스(`/stata-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11) |
+| **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버)·Claude 데스크톱 확장 `.mcpb`·플러그인 마켓플레이스(`/stata-agent:setup`·`/spss-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11·§13) |
 | Stata 17 호환 | 코드·스킬 점검 + 17 미만 경고, 실기 미검증 (§12) |
 | **SPSS 어댑터**(화면 없는 SPSS 엔진, 도구 13종, 문법 guard, 자가 점검, 스킬) | 구현 + 자동 테스트(가짜 `spss` 모듈로 엔진 통신까지), **실제 SPSS 미검증** (IMPLEMENTATION_STATUS §10) |
-| 코드 서명·SPSS 실행파일 | 미착수 |
+| SPSS 22 호환·배포(실행파일·`.mcpb`·`/spss-agent:setup`) | 엔진 Python 2.7·3.4 겸용, CI에서 2.7·3.4 실행 시험, **실기 미검증** (§13) |
+| 코드 서명 | 미착수 |
 
 ## 구조
 
@@ -43,7 +44,7 @@ stata_connect/
 ├── mcp_server/spss_agent/       SPSS 어댑터(엔진·guard·서비스·MCP 서버 spss)
 ├── .claude-plugin/              플러그인 마켓플레이스(marketplace.json)
 ├── plugins/stata-agent/         플러그인: skills/stata-analysis(스킬) + commands/setup.md(Claude Code 설치 명령)
-├── plugins/spss-agent/          플러그인: skills/spss-analysis
+├── plugins/spss-agent/          플러그인: skills/spss-analysis + commands/setup.md
 ├── packaging/                   단일 실행파일·.mcpb 빌드(build.py)·점검(smoke_test.py)
 ├── installer/                   doctor.ps1·register_com.ps1·configure_clients.py
 ├── site/                        사용자 설명서 사이트(index.html·spss.html·style.css·build.py)
@@ -64,7 +65,9 @@ stata-agent setup --dry-run            # 설치 도우미 점검 실행
 
 # 배포 파일(Windows): 단일 exe + .mcpb
 python -m pip install pyinstaller==6.22.3
-python packaging/build.py && python packaging/smoke_test.py dist/stata-agent-0.1.0.exe
+python packaging/build.py                    # stata·spss 두 제품
+python packaging/smoke_test.py dist/stata-agent-0.1.0.exe --product stata
+python packaging/smoke_test.py dist/spss-agent-0.1.0.exe --product spss
 
 # SPSS
 spss-agent doctor                      # SPSS 설치·내장 Python 탐지
@@ -82,6 +85,8 @@ powershell -ExecutionPolicy Bypass -File installer\register_com.ps1 -StataExe C:
 ## 설정(환경변수)
 
 `STATA_AGENT_STATA_EXE`(실행파일 고정), `STATA_AGENT_BACKEND`(auto/com/batch), `STATA_AGENT_MASK_SMALL_CELLS`(빈도표 소표본 마스킹 기준), `STATA_AGENT_UNIQUE_RATIO`(식별자 판정 비율) 등 — 전체 목록은 `mcp_server/stata_agent/config.py`.
+
+SPSS: `SPSS_AGENT_HOME`(설치 폴더 고정), `SPSS_AGENT_PYTHON`(동봉 Python 직접 지정, 22~26의 2.7 등), `SPSS_AGENT_TIMEOUT`(요청 제한 시간, 기본 900초).
 
 ## 의존
 
