@@ -291,6 +291,14 @@
     <p>됨. 다만 AI가 실행 중일 때는 기다릴 것. 연구자가 창에서 변수 이름을 바꾸거나 리코드·<code>clear</code> 등을 하면 AI가 다음 실행 직전에 이를 감지해 “연구자 조작 감지”로 알리고(바뀐 변수·값 변경 여부·창에서 친 명령), 남길 명령은 동의를 받아 do-file에 “연구자 수동 작업” 섹션으로 기록함. do-file을 편집기에서 직접 고쳐도 다음 작업 때 알아채고 그 내용을 기준으로 이어 감. (이 감지 기능은 실제 Stata 시험 전)</p>
   </details>
   <details>
+    <summary>AI가 그래프를 직접 볼 수 있나요?</summary>
+    <p>됨. AI가 그래프를 <code>output\figures</code>에 그림 파일(PNG)로 저장한 뒤 그림을 보고 축 제목·범례·글자 겹침을 점검해 고침. 막대·상자·히스토그램·분포·회귀 계수 그림처럼 요약한 그림은 바로 보지만, 산점도·선 그래프처럼 관측치마다 점이 찍히는 그림이나 점 옆에 값을 글자로 표시한 그림(<code>mlabel</code>)은 개별 값이 그림에 담기므로 AI가 먼저 동의를 구함. 그림에서 눈으로 읽은 수치는 해석에 쓰지 않음(수치는 Stata 결과에서 인용). Claude Code에서는 그림이 AI에게 전달되는 것이 공식 문서로 확인됐고, Claude 앱은 아직 시험 전(그림이 보이지 않으면 저장된 파일을 직접 열어 확인).</p>
+  </details>
+  <details>
+    <summary>pystata 방식은 무엇인가요?</summary>
+    <p>StataCorp가 제공하는 Python 연동(pystata)으로 Stata를 화면 없이 실행하는 보조 방식임. 기본은 Stata 창을 띄우는 방식이고, pystata는 설정에서 따로 고를 때만 씀(<code>STATA_AGENT_BACKEND=pystata</code>, Stata 17 이상과 PC에 설치된 Python 필요). 관리자 권한 없이 쓸 수 있고 Mac에서도 작업 내용이 이어지지만, Stata 화면이 보이지 않아 연구자가 같은 세션을 지켜보거나 Do-file Editor에서 함께 볼 수 없음. (실제 Stata 시험 전)</p>
+  </details>
+  <details>
     <summary>“라이선스가 만료됨”이라고 나오면?</summary>
     <p>Stata 라이선스를 갱신해야 함. PC에 여러 버전의 Stata가 있으면 유효한 라이선스 중 최신 버전을 자동으로 고름.</p>
   </details>

@@ -11,7 +11,7 @@
 
 | 구분 | 상태 |
 |---|---|
-| MCP 서버(도구 19종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
+| MCP 서버(도구 20종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
 | 사용자 설명서 사이트(GitHub Pages, Stata·SPSS 두 페이지): 설치 방법 비교(클릭 설치·Claude Code·Codex) + 다운로드 | 구현 |
 | **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버)·Claude 데스크톱 확장 `.mcpb`·플러그인 마켓플레이스(`/stata-agent:setup`·`/spss-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11·§13) |
@@ -19,6 +19,8 @@
 | **SPSS 어댑터**(화면 없는 SPSS 엔진, 도구 14종, 문법 guard, 자가 점검, 스킬) | 구현 + 자동 테스트(가짜 `spss` 모듈로 엔진 통신까지), **실제 SPSS 미검증** (IMPLEMENTATION_STATUS §10) |
 | SPSS 22 호환·배포(실행파일·`.mcpb`·`/spss-agent:setup`) | 엔진 Python 2.7·3.4 겸용, CI에서 2.7·3.4 실행 시험, **실기 미검증** (§13) |
 | 기존 do-file·.sps 가져오기, 연구자 조작 감지(창에서 바꾼 변수·리코드·직접 수정) | 구현 + 자동 테스트, **실기 미검증** (IMPLEMENTATION_STATUS §14) |
+| 그래프 보기(`stata_view_graph`: 그림을 AI에 전달, 관측치별 점·값 글자 그림은 연구자 동의 후) | 구현 + 자동 테스트, Claude Code 전달은 공식 문서 확인, **실기 미검증** (§15) |
+| pystata 보조 백엔드(`STATA_AGENT_BACKEND=pystata`, 화면 없음, 지정할 때만) | 구현 + 자동 테스트(가짜 pystata로 자식 프로세스 통신), **실기 미검증** (§16) |
 | 코드 서명 | 미착수 |
 
 ## 구조

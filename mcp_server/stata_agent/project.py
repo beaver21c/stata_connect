@@ -12,7 +12,7 @@ from pathlib import Path
 from .dofile import MASTER_NAME, new_dofile, render_master
 from .tool_specs import APPROVAL_TOOLS, READ_ONLY_TOOLS, client_tool_id
 
-DIRS = ("data", "output/logs", "output/tables", ".stata-agent")
+DIRS = ("data", "output/logs", "output/tables", "output/figures", ".stata-agent")
 
 PROJECT_INSTRUCTIONS = """\
 # Stata 분석 프로젝트 지침 (AGENTS.md / CLAUDE.md 공통)
@@ -27,6 +27,7 @@ PROJECT_INSTRUCTIONS = """\
 - P5 재현성: 모든 분석은 do-file 섹션으로 남기고, 마무리 때 `stata_reproduce`로 `00_master.do` 배치 재실행 결과를 대조.
 - P6 투명성: 분석 종료 시 `stata_usage_summary`로 AI 사용 공개문 초안을 제시.
 - P7 연구자 조작: 실행 결과의 '연구자 조작 감지' 경고는 무시하지 않음. 연구자에게 의도를 확인하고, 창에서 입력된 명령 중 남길 것은 동의를 받아 do-file 섹션('연구자 수동 작업')으로 기록.
+- P8 그래프: 그래프는 섹션 코드에서 `graph export "output/figures/이름.png", width(1400) replace`로 저장하고 `stata_view_graph`로 그림을 확인. 관측치별 점·선 그래프(scatter·line 등)와 값 글자 표시(`mlabel()`)는 그림에 개별 관측치 값이 담기므로 연구자 동의를 받은 뒤에만 `acknowledge_risks=true`. 그림에서 눈으로 읽은 수치는 해석에 쓰지 않음(로그·저장결과에서 인용).
 
 ## 폴더
 - `00_master.do`: 전체 재현 진입점(자동 갱신)
@@ -34,6 +35,7 @@ PROJECT_INSTRUCTIONS = """\
 - `data/`: 원자료(읽기 전용, AI 미열람)
 - `output/logs/NN_result.log`: do-file 전체 실행 로그
 - `output/tables/`: 표 산출물
+- `output/figures/`: 그래프(PNG 등, `stata_view_graph`로 확인)
 - `.stata-agent/`: 세션 기록·백업(수정 금지)
 
 ## 해석 규칙

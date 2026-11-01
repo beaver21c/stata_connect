@@ -11,12 +11,18 @@ from pathlib import Path
 import pytest
 
 from spss_agent.engine_script import ENGINE_SCRIPT
+from stata_agent.backends.pystata_proc import WORKER_SCRIPT
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
     "engine_script": ENGINE_SCRIPT,
     "fake_spss": (ROOT / "tests/fake_spss_home/Python3/Lib/site-packages/spss.py").read_text(encoding="utf-8"),
     "legacy_driver": (ROOT / "tests/legacy/run_engine_check.py").read_text(encoding="utf-8"),
+    # pystata 작업자: Stata 17 pystata 지원 범위가 Python 2.7·3.4 이상 [2차 확인] → 같은 문법 범위 유지(§16)
+    "pystata_worker": WORKER_SCRIPT,
+    "pystata_legacy_driver": (ROOT / "tests/legacy/run_pystata_check.py").read_text(encoding="utf-8"),
+    **{f"fake_pystata_{p.stem}": p.read_text(encoding="utf-8")
+       for p in sorted((ROOT / "tests/fake_stata_home/utilities/pystata").glob("*.py"))},
 }
 
 

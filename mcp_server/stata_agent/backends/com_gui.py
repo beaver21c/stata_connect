@@ -109,6 +109,7 @@ display "SA_VERSION|" c(stata_version)
 class ComGuiBackend(Backend):
     name = "com_gui"
     persistent_session = True
+    human_window = True
 
     def __init__(self, upstream: ModuleType | None = None):
         self._upstream = upstream

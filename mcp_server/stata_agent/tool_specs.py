@@ -181,6 +181,19 @@ TOOLS: tuple[ToolSpec, ...] = (
         ("mode",),
     ),
     ToolSpec(
+        "stata_view_graph",
+        "그래프 그림을 AI가 직접 확인(이미지 반환). filename=프로젝트 안 PNG·JPG·GIF(예: output/figures/fig1.png), "
+        "생략하면 현재 Stata 그래프 창(graph_name으로 지정 가능)을 PNG로 내보내 반환. 집계·분포 그래프(histogram·"
+        "graph bar/box·kdensity·marginsplot·coefplot·적합선 등)는 바로 반환, 관측치별 점·선 그래프(scatter·line·"
+        "graph matrix)·값 글자 표시(mlabel)·출처 미확인 그림은 연구자 동의 후 acknowledge_risks=true.",
+        False,
+        {
+            "filename": {"type": "string", "description": "프로젝트 폴더 기준 그림 파일(PNG·JPG·GIF). 생략 시 그래프 창"},
+            "graph_name": {"type": "string", "description": "그래프 창 이름(name() 옵션으로 지정한 이름, 생략 시 현재 그래프)"},
+            "acknowledge_risks": _ACK,
+        },
+    ),
+    ToolSpec(
         "stata_reproduce",
         "배치 모드로 00_master.do 별도 실행 → 대화형 실행 로그(output/logs)와 수치 비교 보고(재현 일치/불일치 n건).",
         False,

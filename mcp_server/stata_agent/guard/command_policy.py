@@ -365,6 +365,8 @@ class CommandGuard:
             if sub in {"install", "inst", "get", "update", "uninstall"}:
                 add("G13", Action.APPROVE, "패키지 설치·변경은 stata_install_package 도구 사용 권장")
             return
+        if self._check_graph_write(name, args, st.text, add):
+            return
         if name == "export":
             target = _using_target(args)
             if target is None:
@@ -404,6 +406,36 @@ class CommandGuard:
             result.identifier_vars.extend(vars_)
             add("G14", Action.WARN, f"빈도·고유값 출력 명령 → 식별자 성격 변수 여부를 실행 전 점검({', '.join(vars_[:5])})")
             return
+
+    def _check_graph_write(self, name: str, args: str, text: str, add) -> bool:
+        """그래프 저장 경로(G16): graph export·graph save 대상과 그래프 명령의 saving() 옵션.
+        그래프 문장이면 True(다른 규칙 검사 생략). 그림은 자료가 아니므로 매크로 경로는 경고에 그침."""
+        from ..graphs import _SAVING_OPT, classify, export_target, is_graph_cmd, save_target  # 순환 import 방지
+
+        targets: list[str] = []
+        if is_graph_cmd(name):
+            sub, rest = (args.split(None, 1) + [""])[:2]
+            low = sub.lower()
+            if low == "export":
+                targets.append(export_target(rest))
+            elif low == "save":
+                targets.append(save_target(rest)[1])
+        elif classify(name, args, text) is None:
+            return False
+        s = _SAVING_OPT.search(text)
+        if s:
+            targets.append(s.group(1))
+        for target in targets:
+            if not target:
+                continue
+            where = self.paths.classify(target)
+            if where == "outside":
+                add("G16", Action.BLOCK, f"프로젝트 폴더 밖으로 그래프 저장 차단({unquote(target)}) → output/figures 사용")
+            elif where == "data":
+                add("G16", Action.BLOCK, f"원자료 폴더(data/)에 그래프 저장 차단({unquote(target)})")
+            elif where == "dynamic":
+                add("G16", Action.WARN, f"그래프 저장 경로에 매크로({unquote(target)}) → 정적 확인 불가, output/figures 안 권장")
+        return True
 
     def _judge_write(self, target: str, add, data_export: bool) -> None:
         if not target:

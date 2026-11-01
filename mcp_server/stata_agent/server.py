@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import functools
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool, ToolAnnotations
+from mcp.types import ImageContent, TextContent, Tool, ToolAnnotations
 
 from . import __version__
 from .selftest import results_table, run_selftest, to_dicts
@@ -82,6 +83,8 @@ def dispatch(service: StataAgentService, name: str, args: dict) -> ToolResult:
     if name == "stata_export":
         return service.export(a["mode"], a.get("estimates"), a.get("filename"), a.get("code"),
                               bool(a.get("acknowledge_risks")))
+    if name == "stata_view_graph":
+        return service.view_graph(a.get("filename"), a.get("graph_name"), bool(a.get("acknowledge_risks")))
     if name == "stata_reproduce":
         return service.reproduce(a.get("master"))
     if name == "stata_break":
@@ -99,7 +102,7 @@ async def _list_tools() -> list[Tool]:
 
 
 @server.call_tool()
-async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def _call_tool(name: str, arguments: dict) -> list[TextContent | ImageContent]:
     loop = asyncio.get_running_loop()
     try:
         result = await loop.run_in_executor(None, functools.partial(dispatch, get_service(), name, arguments))
@@ -109,8 +112,16 @@ async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = ToolResult(f"필수 인자 누락: {e}", True)
     except Exception as e:  # 도구 오류는 대화로 전달
         result = ToolResult(f"도구 실행 오류({type(e).__name__}): {e}", True)
+    return to_content(result)
+
+
+def to_content(result: ToolResult) -> list[TextContent | ImageContent]:
+    """텍스트 + (stata_view_graph일 때) 그림. 그림은 base64 ImageContent로 전달."""
     prefix = "[오류] " if result.is_error else ""
-    return [TextContent(type="text", text=prefix + result.text)]
+    content: list[TextContent | ImageContent] = [TextContent(type="text", text=prefix + result.text)]
+    for data, mime in result.images:
+        content.append(ImageContent(type="image", data=base64.b64encode(data).decode("ascii"), mimeType=mime))
+    return content
 
 
 async def serve() -> None:

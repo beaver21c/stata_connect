@@ -24,6 +24,7 @@
       "mcp__stata__stata_run_section",
       "mcp__stata__stata_run_dofile",
       "mcp__stata__stata_export",
+      "mcp__stata__stata_view_graph",
       "mcp__stata__stata_reproduce",
       "mcp__stata__stata_install_package"
     ]

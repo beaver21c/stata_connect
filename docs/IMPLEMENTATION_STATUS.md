@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14, 그래프 보기는 §15, pystata 보조 백엔드는 §16
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -20,6 +20,8 @@
 | §5 com_gui | `backends/com_gui.py` | 구현(상류 래퍼), 가짜 상류로 흐름 테스트 / **실기 미검증** |
 | §5 batch_cli | `backends/batch_cli.py` | 구현 / **실기 미검증** |
 | §5 applescript_mac | `backends/applescript_mac.py` | 자리만(후순위) |
+| (확장) pystata | `backends/pystata_proc.py`, `backends/worker.py` | 보조 백엔드(지정할 때만), 가짜 pystata로 자식 프로세스 통신 테스트 / **실기 미검증**(§16) |
+| (확장) 그래프 보기 | `graphs.py`, `service.view_graph`, `server.to_content` | 구현·테스트(가짜 백엔드), 이미지 반환 / **실기 미검증**(§15) |
 | §8.1 명령 차단 | `guard/command_policy.py`, `guard/stata_lexer.py` | 구현·차단/허용 사례 전수 테스트 |
 | §8.2 출력 필터 | `guard/output_filter.py` | 구현·테스트(합성 로그 기준) |
 | §6 버전 탐지 | `discovery.py` | 구현·테스트(공개 로그 형식 기준) / **실제 about 출력 대조 필요** |
@@ -91,6 +93,8 @@
 | `stata_break` | `UtilSetStataBreak` | 미구현, 중단 방법 안내 | 동기 실행 중 끼어들 통로 없음 + 효과 미확인 |
 | `log close _all` | 차단·치환 | 차단 + 대안(`log close _nmlog`) 제시 | 실행 파일을 몰래 바꾸지 않기 위함 |
 | 추가 도구 | — | `stata_usage_summary` | §9 10단계 공개문 초안에 필요한 집계 |
+| 추가 도구 | — | `stata_view_graph`(이미지 반환) | 사용자 결정 "그래프는 AI가 볼 수 있어야 함"(2026-11-01). 텍스트 출력 필터를 거치지 않는 새 경로 → 그림 등급·승인으로 관리(§15) |
+| 추가 백엔드 | com_gui·batch_cli·applescript | pystata(보조, 지정할 때만) | 사용자 결정 "추가하되 주력은 아님"(2026-11-01, §16) |
 | `stata_export` etable | — | `mstat(N)`만 기본, 그 밖은 custom 모드 | `mstat(r2)` 등은 모형별로 없을 수 있음 |
 | `version` 선언 | 19.5 또는 19 | StataNow 19.5도 `version 19` | 보수적 선택 |
 | Codex 설정 경로 | 두 위치 탐지 | `config.toml` 하나 | 소스 확인(§3.2) |
@@ -114,13 +118,14 @@
 | G13 | `ssc/net/ado install` | 승인 필요(전용 도구 권장) |
 | G14 | `tab`·`table`·`tabdisp`·`levelsof`·`codebook` | 실행 전 고유값 비율 점검(기본 0.9 초과 시 승인 필요) |
 | G15 | `do`·`run`·`include` | 하위 파일 재귀 검사, 못 읽으면 승인 필요 |
+| G16 | `graph export`·`graph save`·그래프 명령의 `saving()`: 프로젝트 밖·`data/` / 매크로 경로 | 차단 / 경고(§15) |
 
 출력 필터: 행 출력 명령 결과·목록 형식 행(`  1. | … |`)·빈도 1 범주가 대부분인 빈도표 차단, 선택적 소표본 셀 마스킹(`STATA_AGENT_MASK_SMALL_CELLS`).
 
 알려진 한계(guard는 사고 방지 장치이며 보안 경계가 아님, 설계서 §8.3)
 - 한 줄 `if 조건 명령` 내부 명령, 매크로 확장 후 드러나는 명령은 정적 판별 불가
 - `summarize, detail`의 최소·최대 개별 값(Smallest/Largest)은 차단하지 않음
-- `file read` 후 매크로 표시, 그래프 표식 등 우회 경로
+- `file read` 후 매크로 표시 등 우회 경로. 그래프로 전송되는 개별 값은 §15 등급 판정으로 관리(정적 추정이라 완전하지 않음)
 - Claude Code·Codex의 자체 파일·셸 도구가 `data/`를 여는 경우 → 프로젝트 `.claude/settings.json`의 `Read(/data/**)` 거부 규칙으로 일부 차단, 셸 스크립트 경유는 차단 안 됨 [2차 확인]
 
 ## 6. 상류(stata-gui-mcp) 의존 목록
@@ -438,3 +443,88 @@ spss-agent configure --clients claude-code --dry-run
 - [ ] 창에서 `rename`·`recode`·`replace`·`clear`·다른 자료 `use` 후 AI 실행 → 경고 내용 확인
 - [ ] cmdlog 기록 내용(연구자 입력 vs AI 실행 구분), Do-file Editor 선택 실행
 - [ ] 변수 수 많은 자료(예: 2,000개)·큰 자료(예: 100만 관측치)에서 점검 시간
+
+## 15. 그래프 보기 (2026-11-01)
+
+### 15.1 배경·결정
+- 설계서에는 그래프 항목이 없음 [1차 확인: 설계서 본문 검색] → 그림은 파일로만 남고 AI가 확인할 수 없었음
+- 사용자 결정: "그래프는 AI가 볼 수 있어야 함"
+- 쟁점: 그림은 텍스트 출력 필터(`filter_output`)를 거칠 수 없는 새 전송 경로임. 산점도는 관측치마다 (x, y) 값을 담고, `mlabel()`은 점마다 변수 값을 글자로 찍음(식별자면 `list`와 같음)
+- 처리 원칙: 그림을 만든 명령으로 등급을 정해 집계 그림은 바로, 개별 값이 담기는 그림은 연구자 동의 후 반환
+
+### 15.2 구현 대응
+| 구성 | 파일 | 내용 |
+|---|---|---|
+| 등급 판정 | `graphs.py` | 집계·분포(histogram·kdensity·graph bar/box/dot/pie·marginsplot·coefplot·binscatter·적합선만 있는 twoway·`collapse`·`contract` 뒤 그림) / 관측치별 점·선(scatter·line·connected·graph matrix·잔차 그림·`(asis)`·알 수 없는 twoway 종류) / 값 글자 표시(`mlabel()`·`(asis)`+`over()`) / 출처 미확인(`graph use`·`combine`·매크로·이 세션과 프로젝트 do-file에 근거 명령 없음) |
+| 출처 추적 | `GraphScan`, `find_in_project` | AI 실행 코드의 그림 이름(`name()`)·현재 그림·내보낸 파일 기록. 연구자가 창에서 그린 그림은 cmdlog(§14)로 판정. 파일은 이번 세션 기록 → 프로젝트 do-file 검색(`data/` 제외) 순으로 찾고, 같은 이름이 여럿이면 가장 엄격한 등급 |
+| 집단 변수 점검 | `service.view_graph` | 집계 그림이라도 `over()`·`by()` 변수가 식별자 성격(고유값 비율 기준, G14와 같음)이면 승인으로 올림 |
+| 보기 도구 | `stata_view_graph` | 파일(PNG·JPG·GIF, 프로젝트 안, `data/` 제외) 또는 현재·이름 지정 그래프 창을 `.stata-agent/graphs/`에 PNG(폭 1400px)로 내보내 반환. `.gph`·SVG·PDF 등은 PNG로 다시 내보내도록 안내. 3.5MB 초과는 거부(크기 줄여 다시 저장 안내) |
+| 이미지 전달 | `server.to_content` | MCP `ImageContent`(base64, `image/png` 등)를 텍스트와 함께 반환 |
+| 실행 결과 안내 | `_graph_note` | 섹션·파일 실행 뒤 "그래프: output/figures/a.png(집계·분포 그래프) → stata_view_graph로 확인 가능" 한 줄 |
+| 저장 경로 검사 | G16 | `graph export`·`graph save`·`saving()`이 프로젝트 밖·`data/`면 차단, 매크로 경로는 경고(그림은 자료가 아니므로 승인까지 요구하지 않음). 기존에는 그래프 저장 경로를 검사하지 않던 빈틈 [1차 확인: 코드] |
+| 규약 | `project.py`, 스킬 | `output/figures/` 폴더, 원칙 P8(그림에서 읽은 수치는 해석에 쓰지 않음, 개별 값 그림은 동의 후) |
+| 기록 | `session_log` | 등급(`graph_kind`)·승인 여부만(그림 내용 없음) |
+| 권한 | `tool_specs` | 읽기 전용이 아닌 도구(클라이언트 승인 대상)로 분류 → 그림이 PC 밖으로 나가는 경로이므로 보수적으로 둠 |
+
+### 15.3 확인한 사실과 지위
+- Claude Code는 MCP 도구가 돌려준 PNG·JPEG·GIF·WebP 그림을 모델에 그대로 보여 줌. 그 밖 형식(SVG 등)은 파일로 저장하고 경로만 전달 [1차 확인: Claude Code 공식 문서·변경 기록, 하위 조사 열람]
+- 그림 데이터도 `MAX_MCP_OUTPUT_TOKENS`(기본 25,000) 적용 대상이나 계산 방식은 문서에 없음 [1차 확인: 적용 대상 / 미확인: 계산 방식] → 기본 폭 1400px로 내보내 크기를 줄임
+- Claude API 그림 한도: 형식 jpeg·png·gif·webp, 한 장 base64 10MB(Amazon Bedrock 5MB), 긴 변이 기준(표준 1,568px)을 넘으면 축소 [1차 확인: Claude API Vision 문서, 하위 조사 열람] → 3.5MB(base64 약 4.7MB) 상한은 두 한도 안쪽
+- Claude 앱(Desktop·.mcpb)이 MCP 그림을 모델에 전달하는지: 공식 근거 없음, 사용자 보고가 엇갈림(보이는 경우·빈 그림으로 들어온다는 경우) [미확인] → 그래프 창 내보내기 결과에 저장 경로를 함께 적어, 그림이 안 보이면 연구자가 파일을 열도록 안내
+- Codex: MCP 그림을 모델에 전달하는 변경이 상류에 병합됨(2025-10-27) [2차 확인: GitHub PR], 반영된 배포판 [미확인]
+- Stata `graph export ..., name()`(창 이름 지정)·`width()` 옵션 동작, 배치 모드 PNG 내보내기 [미확인: 실기]
+- 등급 판정은 명령 문자열 기준 정적 추정 [논리적 추론]. 관측치 1개짜리 집단의 막대, 아주 작은 표본의 분포 그림처럼 자료 내용에 따라 개별 값이 드러나는 경우는 걸러내지 못함 [한계]
+
+### 15.4 실기 검증 체크리스트
+- [ ] Claude Code: `stata_view_graph` 그림이 모델에 보이는지, 1400px PNG가 출력 한도 경고 없이 전달되는지
+- [ ] Claude 앱(.mcpb): 같은 그림이 모델에 보이는지(보이지 않으면 저장 경로 안내만 남는지)
+- [ ] 그래프 창 내보내기: `name()` 지정·현재 그림, 여러 그래프 창, 창을 닫은 뒤 오류 문구
+- [ ] 배치 모드(`/e`)에서 `graph export` PNG 생성
+- [ ] 등급 판정: 실제 연구 do-file의 그래프 명령(twoway 복합·`by()`·사용자 명령) 표본 대조
+
+## 16. pystata 보조 백엔드 (2026-11-01)
+
+### 16.1 배경·결정
+- 사용자 결정: "pystata 방식을 추가하되 일단 주력은 아님" → `STATA_AGENT_BACKEND=pystata`로 지정할 때만 사용, `auto`에서는 고르지 않음
+- 장점: StataCorp 공식 인터페이스, 호출 간 자료·추정결과 유지(배치와 다름), Windows·macOS·Linux 공통, COM 등록(관리자 권한) 불필요
+- 단점: Stata 화면 없음(연구자가 같은 세션을 볼 수 없음, Do-file Editor 연동 없음), 연구자 PC에 별도 Python 필요, 실행 중 중단은 작업자 종료(세션 소실)뿐
+
+### 16.2 구현 대응
+| 구성 | 파일 | 내용 |
+|---|---|---|
+| 작업자 | `backends/pystata_proc.py`(`WORKER_SCRIPT`) | 연구자 PC의 Python으로 자식 프로세스 실행 → `<Stata>/utilities`를 경로에 넣고 `pystata.config.init(에디션, splash=False)`(stata_setup이 하는 일을 직접 수행, 별도 설치 불필요) |
+| 통신 | `backends/worker.py`(`JsonWorker`) | SPSS 엔진과 같은 방식(요청 JSON·응답 파일·완료 표지)을 공용 모듈로 분리, SPSS 엔진도 이 모듈 사용(동작 변화 없음, 기존 테스트 통과) |
+| 출력 분리 | 작업자 | 완료 표지용 통로를 따로 두고 표준출력(파일 기술자 1번 포함)은 버림 → Stata 출력은 `log using`으로 남긴 로그 파일로만 읽음 → AI 반환은 다른 백엔드와 같이 출력 필터 통과 |
+| 실행 | `run_code`·`run_dofile` | 코드는 `.stata-agent/pystata/`의 임시 do-file로 `do` 실행(실행 후 삭제), 실행마다 프로젝트 폴더로 `cd`, 오류는 로그의 `r(#);`와 `SystemError`로 판정 |
+| Python 탐지 | `find_python` | `STATA_AGENT_PYTHON` → (실행파일 묶음이 아닐 때) 서버 Python → `py -3` → `python3`·`python`(Windows Store 대리 실행파일 제외) |
+| Stata 폴더 | `stata_home_for` | 실행파일 위쪽 폴더 중 `utilities/pystata`가 있는 곳. 17 미만 폴더 이름이면 사용 불가 |
+| 연구자 조작 감지 | `Backend.human_window` | 화면이 없어 사람이 조작할 수 없으므로 생략(com_gui만 대상) |
+| 그래프 | `stata_view_graph` | 메모리 그래프 내보내기 사용 가능(세션 유지) |
+| 점검 | `stata-agent doctor` | "pystata(보조): 사용 가능/불가 — 사유" 한 줄(Stata는 띄우지 않음) |
+| 구버전 Python | `tests/test_spss_legacy.py`, `tests/legacy/run_pystata_check.py`, CI `spss-legacy-python` | 작업자·가짜 pystata를 Python 2.7·3.4 문법으로 유지하고 실제 실행 |
+
+### 16.3 확인한 사실과 지위
+- `stata_setup.config(path, edition, splash=True)`: `<path>/utilities`가 없으면 `OSError`, 있으면 sys.path에 넣고 `pystata.config.init(edition, splash=splash)` 호출, 에디션 mp·se·be [1차 확인: stata_setup 0.1.3 소스 직접 열람]
+- `stata.run(cmd, quietly, echo, inline)`: 17과 18의 `echo` 기본값이 다름, 여러 줄은 임시 do-file로 한 번에 실행, 실패 시 `SystemError` [2차 확인: stata.com pystata17·18 문서 검색 요약 — 이 작업 환경에서 www.stata.com 접속 차단] → 작업자는 `echo`를 넘기지 않음
+- `run()`만 쓰면 NumPy·pandas 불필요, Stata 17 문서 기준 Python 2.7 또는 3.4 이상 [2차 확인: 같은 문서 검색 요약]
+- `config.set_graph_show`·`set_output_file` 존재, 스트리밍 출력 함수 이름은 `set_streaming_output`(StataNow 전용) [2차 확인] → 작업자는 `set_graph_show(False)`만 시도(실패해도 진행)
+- Stata 출력이 Python `sys.stdout`으로 나가는지 C 수준에서 쓰는지 [미확인] → 두 경로 모두 버리도록 구현
+- 일반 스크립트에서 `graph export`, macOS의 `utilities` 위치(`/Applications/Stata/utilities` 추정), 자식 프로세스·라이선스 좌석 제약 [미확인: 실기]
+
+### 16.4 실기 검증 체크리스트
+- [ ] Windows Stata 17·18: `STATA_AGENT_BACKEND=pystata`로 세션 열기·섹션 실행·오류 r() 판정·호출 간 자료 유지
+- [ ] 작업자 표준출력에 Stata 출력이 섞이지 않는지(완료 표지 통신 유지)
+- [ ] `graph export` PNG 생성, `stata_view_graph()` 메모리 그래프
+- [ ] macOS: `utilities/pystata` 위치, 에디션 판정
+- [ ] COM 창 세션과 pystata 세션을 동시에 열 때 라이선스 동작
+
+### 16.5 참고자료(§15·§16)
+1. Anthropic. (n.d.). *Connect Claude Code to tools via MCP* [Images in tool results 절]. Claude Code Docs. https://code.claude.com/docs/en/mcp (하위 조사 열람)
+2. Anthropic. (2026). *Claude Code changelog* [2.1.144·2.1.283 항목]. GitHub. https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md (하위 조사 열람)
+3. Anthropic. (n.d.). *Vision*. Claude API Docs. https://platform.claude.com/docs/en/build-with-claude/vision (하위 조사 열람)
+4. Anthropic. (2026). *Issue #238: MCP tool result images* [GitHub issue]. https://github.com/anthropics/claude-ai-mcp/issues/238 (하위 조사 열람, 사용자 보고)
+5. OpenAI. (2025). *Pull request #5600: Render MCP tool call result images to the model* [GitHub pull request]. https://github.com/openai/codex/pull/5600 (하위 조사 열람)
+6. StataCorp. (2022). *stata_setup* (Version 0.1.3) [Software]. PyPI. https://pypi.org/project/stata_setup/ (소스 직접 열람)
+7. StataCorp. (n.d.). *pystata.config* (Stata 18). https://www.stata.com/python/pystata18/config.html (검색 결과 요약으로 확인, 원문 미열람)
+8. StataCorp. (n.d.). *pystata.stata* (Stata 17). https://www.stata.com/python/pystata17/stata.html (검색 결과 요약으로 확인, 원문 미열람)
+9. StataCorp. (n.d.). *Installation* (pystata, Stata 17). https://www.stata.com/python/pystata17/install.html (검색 결과 요약으로 확인, 원문 미열람)

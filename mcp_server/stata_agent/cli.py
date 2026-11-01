@@ -34,7 +34,9 @@ def cmd_doctor(args) -> int:
     if args.json:
         print(json.dumps({"version": __version__, **rep.public_dict(),
                           "version_declaration": version_declaration(rep.selected),
-                          "com_layer": _com_layer_status()}, ensure_ascii=False, indent=2))
+                          "com_layer": _com_layer_status(),
+                          "pystata": _pystata_status(rep.selected.exe if rep.selected else None)},
+                         ensure_ascii=False, indent=2))
         return 0 if rep.selected else 1
     # 등록자는 사람이 보는 콘솔 화면에만 표시(출력이 다른 프로그램·AI로 넘어가면 생략)
     show_registrant = sys.stdout.isatty()
@@ -60,7 +62,18 @@ def cmd_doctor(args) -> int:
             line += " [지원 범위 밖: Stata 17 이상 필요]"
         print(line)
     print(f"선택: {rep.selected.exe if rep.selected else '없음'} / do-file 선언: {version_declaration(rep.selected)}")
+    py = _pystata_status(rep.selected.exe if rep.selected else None)
+    print(f"pystata(보조, STATA_AGENT_BACKEND=pystata일 때만): {'사용 가능' if py['available'] else '사용 불가'} — {py['reason']}")
     return 0 if rep.selected else 1
+
+
+def _pystata_status(exe: str | None) -> dict:
+    """보조 백엔드 사용 가능 여부(파일·Python 확인만, Stata는 띄우지 않음)."""
+    from .backends.pystata_proc import PystataBackend
+    from .config import Settings
+
+    ok, why = PystataBackend(exe, Settings.from_env().python_exe).available()
+    return {"available": ok, "reason": why}
 
 
 def _com_layer_status() -> dict:

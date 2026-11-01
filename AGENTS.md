@@ -21,6 +21,8 @@
 - 플러그인 검사: `claude plugin validate .`·`claude plugin validate ./plugins/stata-agent`. 플러그인에 MCP 서버·최상위 `bin/`을 넣지 않음(도구 이름 변경·claude.ai 설치 불가)
 - 지원 Stata 범위: 17 이상(`discovery.MIN_SUPPORTED_MAJOR`). 18 이상 전용 명령을 서버 코드·스킬에 쓰지 않음(§12)
 - 지원 SPSS 범위: 22 이상(`spss_agent.discovery.MIN_SUPPORTED_VERSION`). `engine_script.py`는 SPSS 동봉 Python 2.7·3.4에서도 돌아야 함 → f-문자열·`open(encoding=)`·형 주석 금지(`tests/test_spss_legacy.py`가 검사, CI `spss-legacy-python`이 실제 실행)(§13)
+- pystata 보조 백엔드(`backends/pystata_proc.py`)의 `WORKER_SCRIPT`도 같은 문법 범위(Stata 17 pystata의 Python 2.7·3.4 지원 대비). `auto` 선택에 넣지 않음(사용자 결정, §16)
+- 그래프 그림 반환(`stata_view_graph`)은 텍스트 출력 필터를 거치지 않는 경로 → 등급 판정(`graphs.py`)·승인 규칙을 바꿀 때 IMPLEMENTATION_STATUS §15 갱신
 - 배포 제품 추가·변경: `packaging/build.py`의 `Product`(stata·spss), 점검 `packaging/smoke_test.py --product`
 
 ## Windows 실기 검증 시
