@@ -24,6 +24,7 @@ description: SPSS Statistics를 MCP 도구(spss 서버, 화면 없는 SPSS 엔�
 | spss_load_data | .sav 불러오기(사례·변수 수만 반환) | 필요 |
 | spss_schema | 변수명·라벨·유형·측정수준·결측 | 자동 |
 | spss_write_syntax / spss_patch_syntax | 문법 파일 작성 / 섹션 추가·교체·삭제 | 필요 |
+| spss_import_syntax | 연구자가 쓰던 .sps 가져오기(UTF-8 변환·제목 기준 섹션 표지·행 출력 명령 주석, 원본 백업) | 필요 |
 | spss_run_section / spss_run_syntax_file | 섹션 / 파일 전체 실행 | 필요 |
 | spss_read_output | 출력 다시 읽기(필터 적용) | 자동 |
 | spss_export | 섹션 결과 표를 Word·Excel·HTML·PDF로 저장 | 필요 |
@@ -33,6 +34,7 @@ description: SPSS Statistics를 MCP 도구(spss 서버, 화면 없는 SPSS 엔�
 ## 3. 작업 순서
 1. **요청 해석**: 목적·종속/독립변수·표본 확인. 결론을 가르는 핵심 사항 1~2개만 먼저 질문.
 2. **연결**: `spss_open_session(project_dir)` → 필요하면 `spss_load_data`.
+   - **연구자가 쓰던 .sps로 이어 작업**: 그 파일을 프로젝트 폴더에 두게 한 뒤 `spss_import_syntax(preview=true)`로 바뀔 내용(인코딩 변환·섹션 나눔·주석 처리할 명령)을 먼저 보여 주고 동의를 받아 `spss_import_syntax` 실행 → `spss_run_syntax_file`로 전체를 한 번 실행해 자료 상태 복원 → 새 분석은 `spss_patch_syntax(action="add")`로 이어 붙임. 주석 처리된 `LIST` 등은 연구자가 SPSS에서 직접 실행하도록 안내.
 3. **자료 구조**: `spss_schema`만 사용.
 4. **문법 작성**: `spss_write_syntax`로 섹션 단위 작성(파일명 `NN_영문.sps`). 첫 섹션에 `GET FILE='data/...sav'.`를 두어 파일 단독 재실행이 가능하게 함. 명령은 마침표로 끝냄.
 5. **승인·실행**: `spss_run_section` 또는 `spss_run_syntax_file`.
@@ -54,6 +56,10 @@ description: SPSS Statistics를 MCP 도구(spss 서버, 화면 없는 SPSS 엔�
 - **실행 시간 초과**(기본 900초): 엔진이 종료되고 세션 상태(열린 자료)가 사라짐 → 자료 불러오기부터 다시 실행.
 - **SPSS 오류 수준**: 2 = 경고(출력 확인), 3 이상 = 오류(명령 미실행 가능) → 오류 메시지를 보고 문법 수정.
 - **연결 점검 요청**: `spss_selftest` 결과표를 보여 주고 실패 항목 조치를 안내. 오류 보고에는 점검 보고서만 첨부.
+- **문법 파일 직접 수정 감지**("연구자 수정 감지"): 연구자가 SPSS 편집기 등에서 .sps를 고친 것임. 디스크 내용을 기준으로 이어 가며, 바뀐 섹션을 다시 실행할지 연구자에게 확인.
+- **SPSS 버전**: 지원 범위는 22 이상. 문법을 쓰기 전 `spss_status`의 버전을 확인하고, 이후 버전에서 추가된 기능은 그 버전 이상일 때만 사용.
+  - 27 이상: `T-TEST`·`ONEWAY`의 효과크기(`/ES`). 22~26에는 없음 → 효과크기가 필요하면 `GLM ... /PRINT ETASQ`(편에타제곱) 등 SPSS가 산출하는 방법을 연구자와 정하고, AI가 직접 계산하지 않음
+  - 표 내보내기: 27 이하는 Word가 `.doc`(97-2003) 형식으로 저장됨(도구가 자동 변경), 29에서 `.xlsx`가 비어 있으면 `.xls`로 다시 요청
 
 ## 6. 기법별 점검표 (references/)
 기술통계 `descriptive.md` · t검정 `ttest.md` · 분산분석 `anova.md` · 상관 `correlation.md` · 회귀 `regression.md` · 비선형·다층 `nonlinear.md` · SEM `sem.md` · 보고 양식 `reporting.md`

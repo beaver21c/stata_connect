@@ -14,7 +14,7 @@
     {
       "name": "spss-agent",
       "source": "./plugins/spss-agent",
-      "description": "SPSS 분석 스킬(spss-analysis)"
+      "description": "SPSS 분석 스킬(spss-analysis) + Claude Code 설치 명령(/spss-agent:setup)"
     }
   ]
 }

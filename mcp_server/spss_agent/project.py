@@ -40,14 +40,23 @@ PROJECT_INSTRUCTIONS = """\
 """
 
 
-def claude_settings() -> dict:
-    return {
+def claude_settings(hook: list[str] | None = None) -> dict:
+    """프로젝트 ``.claude/settings.json``. hook이 있으면 셸 명령 실행 전 검사(공용 hookguard) 등록."""
+    settings: dict = {
         "permissions": {
             "deny": ["Read(/data/**)", "Edit(/data/**)"],
             "allow": [PROFILE.tool_id(n) for n in PROFILE.read_only_tools],
             "ask": [PROFILE.tool_id(n) for n in PROFILE.approval_tools],
         }
     }
+    if hook:
+        settings["hooks"] = {
+            "PreToolUse": [
+                {"matcher": "Bash|PowerShell",
+                 "hooks": [{"type": "command", "command": hook[0], "args": list(hook[1:])}]}
+            ]
+        }
+    return settings
 
 
 # SPSS에는 Stata의 sysuse 같은 내장 예제 불러오기가 없어 문법 안 자료로 예제 구성
@@ -60,7 +69,7 @@ EXAMPLE_SECTIONS = [
 ]
 
 
-def init_project(root: Path, example: bool = False) -> list[str]:
+def init_project(root: Path, example: bool = False, hook: list[str] | None = None) -> list[str]:
     root = Path(root)
     created: list[str] = []
     for d in DIRS:
@@ -82,7 +91,7 @@ def init_project(root: Path, example: bool = False) -> list[str]:
         write_if_absent(MASTER_NAME, render_master([]), ENCODING)
     write_if_absent("AGENTS.md", PROJECT_INSTRUCTIONS)
     write_if_absent("CLAUDE.md", PROJECT_INSTRUCTIONS)
-    write_if_absent(".claude/settings.json", json.dumps(claude_settings(), ensure_ascii=False, indent=2) + "\n")
+    write_if_absent(".claude/settings.json", json.dumps(claude_settings(hook), ensure_ascii=False, indent=2) + "\n")
     return created
 
 

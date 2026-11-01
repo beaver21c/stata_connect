@@ -16,7 +16,7 @@ _ACK = {
     "type": "boolean",
     "description": "guard가 '승인 필요'로 판정한 위험을 연구자가 확인했을 때만 true. 사유를 설명하고 동의를 받은 뒤 사용",
 }
-_FILENAME = {"type": "string", "description": "프로젝트 폴더 기준 문법 파일 이름(예: 04_regress.sps)"}
+_FILENAME = {"type": "string", "description": "프로젝트 폴더 기준 문법 파일 이름(예: 04_regress.sps). 새 파일은 NN_영문명.sps 규약, 기존 파일은 이름 무관"}
 _SECTIONS = {
     "type": "array",
     "description": "섹션 목록(순서대로 S01, S02 …). 각 명령은 마침표로 끝낼 것",
@@ -46,6 +46,13 @@ TOOLS: tuple[ToolSpec, ...] = (
              False, {"filename": _FILENAME, "action": {"type": "string", "enum": ["add", "replace", "delete"]},
                      "section_id": {"type": "string"}, "title": {"type": "string"}, "code": {"type": "string"},
                      "after": {"type": "string"}}, ("filename", "action")),
+    ToolSpec("spss_import_syntax",
+             "연구자가 쓰던 .sps를 이어 작업용으로 준비(실행하지 않음): 원본 백업 후 UTF-8 변환(코드페이지 cp949 등), "
+             "주석 제목(장식·상자형·번호) 기준 섹션 표지 추가, LIST·PRINT 등 행 출력 명령 주석 처리(연구자 직접 실행 목록 반환), "
+             "차단·승인 대상과 프로젝트 밖 경로 보고, 00_master.sps 맨 앞 등록. preview=true면 바꾸지 않고 계획만 반환.",
+             False, {"filename": {"type": "string", "description": "프로젝트 폴더 안 기존 .sps(이름 무관)"},
+                     "preview": {"type": "boolean", "description": "true면 변경 없이 계획만 반환"}},
+             ("filename",)),
     ToolSpec("spss_run_section", "지정 섹션만 현재 세션에서 실행하고 필터를 거친 출력 반환. 실행 전 guard 검사.",
              False, {"filename": _FILENAME, "section_id": {"type": "string"}, "acknowledge_risks": _ACK},
              ("filename", "section_id")),
@@ -56,7 +63,7 @@ TOOLS: tuple[ToolSpec, ...] = (
               "tail_lines": {"type": "integer"}}),
     ToolSpec("spss_export", "지정 섹션을 다시 실행하며 표를 output/tables에 Word·Excel·HTML·PDF로 저장(OMS).", False,
              {"filename": _FILENAME, "section_id": {"type": "string"},
-              "output": {"type": "string", "description": "output/tables 안 파일명(.docx/.xlsx/.html/.pdf)"},
+              "output": {"type": "string", "description": "output/tables 안 파일명(.docx/.doc/.xlsx/.xls/.html/.pdf). SPSS 27 이하는 .docx 요청을 .doc로 저장"},
               "acknowledge_risks": _ACK}, ("filename", "section_id", "output")),
     ToolSpec("spss_reproduce", "새 SPSS 엔진에서 00_master.sps 목록 순서대로 다시 실행 → 대화형 출력(output/logs)과 수치 비교 보고.", False),
     ToolSpec("spss_usage_summary", "AI 사용 기록(.spss-agent/history.jsonl) 집계와 논문 연구방법 절 공개문 초안 반환.", True,

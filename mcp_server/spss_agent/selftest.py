@@ -72,9 +72,13 @@ def run_selftest(service, client_name: str | None = None, include_batch: bool = 
     root.mkdir(parents=True, exist_ok=True)
 
     ok, why = service.backend.available()
-    results.append(TestResult("T1", "SPSS 설치", "pass" if ok else "fail",
-                              f"{inst.home} (버전 {inst.version})" if inst else why,
-                              "" if ok else "SPSS 설치·Python 연동 기능 확인, SPSS_AGENT_HOME 지정"))
+    t1_status, t1_remedy = ("pass" if ok else "fail"), ("" if ok else "SPSS 설치·Python 연동 기능 확인, SPSS_AGENT_HOME 지정")
+    if inst is not None and inst.supported is False:
+        t1_status, t1_remedy = "fail", "SPSS 22 이상 필요(지원 범위 밖)"
+    results.append(TestResult("T1", "SPSS 설치", t1_status,
+                              (f"{inst.home} (버전 {inst.version}, 내장 Python {inst.python_line})" if ok else
+                               f"{inst.home} (버전 {inst.version}) — {why}") if inst else why,
+                              t1_remedy))
 
     opened = service.open_session(str(root)) if ok else None
     session_ok = bool(opened and not opened.is_error)

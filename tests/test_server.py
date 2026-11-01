@@ -19,13 +19,13 @@ DESIGN_TOOLS = {  # 설계서 §7 표
 def test_tool_list_covers_design():
     names = {t.name for t in srv.list_tool_objects()}
     assert DESIGN_TOOLS <= names
-    assert names - DESIGN_TOOLS == {"stata_usage_summary"}
+    assert names - DESIGN_TOOLS == {"stata_usage_summary", "stata_import_dofile", "stata_check_changes"}
 
 
 def test_permission_classes_match_design():
     assert set(READ_ONLY_TOOLS) == {
         "stata_status", "stata_selftest", "stata_schema", "stata_show_in_editor", "stata_read_log",
-        "stata_get_results", "stata_break", "stata_usage_summary",
+        "stata_get_results", "stata_break", "stata_usage_summary", "stata_check_changes",
     }
     for t in srv.list_tool_objects():
         spec = next(s for s in TOOLS if s.name == t.name)

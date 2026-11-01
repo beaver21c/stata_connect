@@ -69,7 +69,8 @@ def test_blocked_section_not_executed(svc):
     before = len(svc.backend.calls)
     r = svc.run_section("05_bad.do", "S01")
     assert r.is_error and "차단" in r.text
-    assert len(svc.backend.calls) == before  # 실행 안 됨
+    # 실행 안 됨(실행 전 상태 점검용 내부 호출만 있을 수 있음)
+    assert not any("list make" in c[1] for c in svc.backend.calls[before:] if c[0] == "code")
 
 
 def test_approval_flow(svc):

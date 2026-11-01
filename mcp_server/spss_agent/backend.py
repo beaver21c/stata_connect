@@ -11,6 +11,17 @@ from .discovery import SpssInstall
 from .engine import EngineConfig, EngineError, SpssEngine
 
 
+def read_output(path: Path) -> str:
+    """OMS 텍스트 출력 읽기. 유니코드 모드는 UTF-8, 코드페이지 모드(구버전 설정)는 시스템 인코딩 [논리적 추론]."""
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        import locale
+
+        return data.decode(locale.getpreferredencoding(False) or "cp949", errors="replace")
+
+
 class EngineLike(Protocol):
     alive: bool
 
@@ -38,7 +49,8 @@ class SpssBackend:
         if self.install is None:
             return False, "SPSS Statistics 설치를 찾지 못함(SPSS_AGENT_HOME으로 설치 폴더 지정 가능)"
         if not self.install.python_ready:
-            return False, f"SPSS 내장 Python 없음: {self.install.python_exe} (Python 연동 기능 설치 확인)"
+            return False, (f"SPSS 내장 Python 없음: {self.install.python_exe} → SPSS 설치 시 'Python Essentials'"
+                           "(Integration Plug-in for Python) 포함 여부 확인, 다른 위치면 SPSS_AGENT_PYTHON으로 지정")
         return True, ""
 
     def fresh(self) -> "SpssBackend":
@@ -75,7 +87,7 @@ class SpssBackend:
             r = self._engine().request("submit", syntax=syntax, outfile=str(outfile))
         except EngineError as e:
             return RunOutcome(False, None, "", outfile, str(e))
-        text = outfile.read_text(encoding="utf-8-sig", errors="replace") if outfile.is_file() else ""
+        text = read_output(outfile) if outfile.is_file() else ""
         level = r.get("err_level")
         msg = ""
         if r.get("error"):

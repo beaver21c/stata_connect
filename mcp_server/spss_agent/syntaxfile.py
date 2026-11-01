@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from stata_agent.dofile import DoFileError, backup_file, clean_title, normalize_section_id
@@ -131,7 +132,12 @@ def validate_filename(filename: str) -> re.Match:
 
 
 def result_relpath(filename: str) -> str:
-    return f"output/logs/{FILENAME_RE.match(filename).group('nn')}_result.txt"  # type: ignore[union-attr]
+    m = FILENAME_RE.match(filename)
+    if m:
+        return f"output/logs/{m.group('nn')}_result.txt"
+    # 가져온 기존 파일(규약 밖 이름): 파일 이름을 그대로 쓰되 경로 문자만 정리
+    stem = re.sub(r"[\\/:*?\"<>|\s]+", "_", Path(filename).stem).strip("_") or "imported"
+    return f"output/logs/{stem}_result.txt"
 
 
 def render_header(filename: str, author: str = "AI") -> list[str]:
@@ -151,7 +157,8 @@ def new_syntax(filename: str, sections: list[tuple[str, str]], author: str = "AI
     return doc.render()
 
 
-_INSERT_RE = re.compile(r"^\s*INSERT\s+FILE\s*=\s*['\"](?P<name>\d{2}_[^'\"]+\.sps)['\"]", re.IGNORECASE)
+# 규약 이름(NN_이름.sps)과 가져온 기존 파일(임의 이름) 모두 인식
+_INSERT_RE = re.compile(r"^\s*INSERT\s+FILE\s*=\s*['\"](?P<name>[^'\"]+\.sps)['\"]", re.IGNORECASE)
 
 
 def insert_line(filename: str) -> str:
@@ -186,7 +193,8 @@ def ensure_master_includes(master_text: str | None, filename: str) -> str:
         m = _INSERT_RE.match(line)
         if m:
             last = idx
-            if m.group("name") > filename:
+            # 가져온 기존 파일(규약 밖 이름)은 앞쪽 고정 → 번호 비교는 규약 이름끼리만
+            if FILENAME_RE.match(m.group("name")) and m.group("name") > filename:
                 insert_at = idx
                 break
     else:
@@ -195,8 +203,20 @@ def ensure_master_includes(master_text: str | None, filename: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def ensure_master_first(master_text: str | None, filename: str) -> str:
+    """가져온 기존 문법 파일을 00_master.sps INSERT 목록 맨 앞에 등록."""
+    if master_text is None:
+        master_text = render_master([])
+    if filename in master_entries(master_text):
+        return master_text
+    lines = master_text.lstrip("\ufeff").rstrip("\n").split("\n")
+    first = next((i for i, ln in enumerate(lines) if _INSERT_RE.match(ln)), len(lines))
+    lines.insert(first, insert_line(filename))
+    return "\n".join(lines) + "\n"
+
+
 __all__ = [
     "ENCODING", "MASTER_NAME", "Section", "SyntaxFile", "SyntaxFileError", "backup_file",
-    "ensure_master_includes", "master_entries", "new_syntax", "render_master", "result_relpath",
+    "ensure_master_first", "ensure_master_includes", "master_entries", "new_syntax", "render_master", "result_relpath",
     "section_marker", "validate_filename",
 ]

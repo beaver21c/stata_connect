@@ -24,6 +24,8 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 | stata_load_data | 자료 불러오기(관측치·변수 수만 반환) | 필요 |
 | stata_schema | 변수명·유형·라벨·결측 | 자동 |
 | stata_write_dofile / stata_patch_dofile | do-file 작성 / 섹션 추가·교체·삭제 | 필요 |
+| stata_import_dofile | 연구자가 쓰던 do-file 가져오기(UTF-8 변환·제목 기준 섹션 표지·행 출력 줄 주석, 원본 백업) | 필요 |
+| stata_check_changes | 연구자가 Stata 창에서 한 조작 점검(자료 상태 변화·창에서 친 명령·do-file 직접 수정) | 자동 |
 | stata_show_in_editor | Do-file Editor 표시 | 자동 |
 | stata_run_section / stata_run_dofile | 섹션 / 파일 전체 실행 | 필요 |
 | stata_read_log | 로그 다시 읽기(필터 적용) | 자동 |
@@ -37,6 +39,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 ## 3. 작업 순서
 1. **요청 해석**: 분석 목적·종속/독립변수·표본을 확인. 결론을 가르는 핵심 사항 1~2개만 먼저 질문.
 2. **연결**: `stata_open_session(project_dir)` → 필요하면 `stata_load_data`.
+   - **연구자가 쓰던 do-file로 이어 작업**: 그 파일을 프로젝트 폴더에 두게 한 뒤 `stata_import_dofile(preview=true)`로 바뀔 내용(인코딩 변환·섹션 나눔·주석 처리할 줄)을 먼저 보여 주고 동의를 받아 `stata_import_dofile` 실행 → `stata_run_dofile`로 전체를 한 번 실행해 자료 상태 복원 → 새 분석은 `stata_patch_dofile(action="add")`로 이어 붙임. 주석 처리된 `list`·`browse` 줄은 연구자가 Stata 창에서 직접 실행하도록 안내.
 3. **자료 구조**: `stata_schema`만 사용(행 열람 금지).
 4. **do-file 작성**: `stata_write_dofile`로 섹션 단위 작성(파일명 `NN_영문.do`, 예: `04_regress.do`). 추정결과는 `estimates store m1`처럼 이름을 붙여 저장.
 5. **승인·실행**: 실행할 섹션과 이유를 알리고 `stata_run_section`.
@@ -74,4 +77,6 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 - **실행 시간 초과**: COM 세션은 명령당 180초 제한(상류 고정값) → 장시간 작업은 `stata_reproduce`(배치)로 실행하거나 섹션을 나눔.
 - **Stata 창이 닫힘·연결 끊김**: 새 빈 세션으로 재연결됨 → 자료 불러오기부터 다시 실행.
 - **연결 점검 요청**: `stata_selftest` 결과표를 보여 주고, 실패 항목의 조치를 안내. 오류 보고에는 점검 보고서 파일만 첨부하도록 안내.
+- **연구자 조작 감지 경고**(실행 결과 첫머리 "⚠️ 연구자 조작 감지"): 연구자가 AI가 연 Stata 창에서 변수 이름 변경·리코드·clear 등을 한 것임. 무시하지 말고 ① 의도한 변경인지 연구자에게 확인 ② 구조가 바뀌었으면 `stata_schema`로 다시 확인 ③ 창에서 입력된 명령 중 남길 것은 동의를 받아 `stata_patch_dofile(action="add", title="연구자 수동 작업")`으로 do-file에 기록(재현성). 연구자가 "창에서 뭘 바꿨어"라고 하면 `stata_check_changes`.
+- **do-file 직접 수정 감지**("연구자 수정 감지"): 연구자가 편집기에서 파일을 고친 것임. 디스크 내용을 기준으로 이어 가며, 바뀐 섹션을 다시 실행할지 연구자에게 확인.
 - **Stata 버전**: 지원 범위는 17 이상. 코드를 쓰기 전 `stata_status`의 버전을 확인하고, 18 이상에서 추가된 명령(예: 기술통계표 `dtable`)은 버전이 18 이상일 때만 사용. 17에서는 `table`·`collect`·`etable`로 대신함.

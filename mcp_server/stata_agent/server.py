@@ -65,6 +65,10 @@ def dispatch(service: StataAgentService, name: str, args: dict) -> ToolResult:
     if name == "stata_patch_dofile":
         return service.patch_dofile(a["filename"], a["action"], a.get("section_id"), a.get("title"),
                                     a.get("code"), a.get("after"))
+    if name == "stata_check_changes":
+        return service.check_changes()
+    if name == "stata_import_dofile":
+        return service.import_dofile(a["filename"], bool(a.get("preview")))
     if name == "stata_show_in_editor":
         return service.show_in_editor(a["filename"])
     if name == "stata_run_section":

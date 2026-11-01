@@ -5,6 +5,12 @@
 - 레지스트리: ``SOFTWARE\\IBM\\SPSS Statistics\\<버전>``의 ``InstallationDirectory``
 - 내장 Python: ``<설치폴더>\\Python3\\python.exe``
 구버전 경로 ``IBM\\SPSS\\Statistics\\<버전>``은 [논리적 추론]으로 추가.
+
+지원 범위 SPSS 22 이상(사용자 요구). 버전별 내장 Python [2차 확인: IBM 문서 검색 요약]
+- 22·23: Python 2.7, 24~26: 2.7 + 3.4, 27부터: 3.x만(2.x 제외), 최신 문서: 3.10
+- 폴더 이름: 3.x는 ``Python3``(제3자 구현 확인), 2.7은 ``Python`` [미확인: 실기 확인 필요]
+  → ``Python3`` → ``Python`` → ``Python27`` 순으로 찾고, ``SPSS_AGENT_PYTHON``으로 직접 지정 가능
+- 32비트판(22 등)은 ``Program Files (x86)``·레지스트리 ``WOW6432Node`` [논리적 추론]
 """
 
 from __future__ import annotations
@@ -16,6 +22,20 @@ from dataclasses import dataclass
 from pathlib import Path
 
 IS_WINDOWS = sys.platform.startswith("win")
+MIN_SUPPORTED_VERSION = 22
+PYTHON_DIRS = ("Python3", "Python", "Python27")
+REGISTRY_KEYS = (
+    r"SOFTWARE\IBM\SPSS Statistics",
+    r"SOFTWARE\IBM\SPSS\Statistics",
+    r"SOFTWARE\WOW6432Node\IBM\SPSS Statistics",
+    r"SOFTWARE\WOW6432Node\IBM\SPSS\Statistics",
+)
+REGISTRY_VALUES = ("InstallationDirectory", "InstallDir")
+
+
+def _env(name: str) -> str | None:
+    value = (os.environ.get(name) or "").strip()
+    return None if not value or re.fullmatch(r"\$\{[^}]*\}", value) else value
 
 
 @dataclass
@@ -30,15 +50,33 @@ class SpssInstall:
 
     @property
     def python_exe(self) -> Path:
-        return Path(self.home) / "Python3" / "python.exe"
+        """SPSS 동봉 Python. SPSS_AGENT_PYTHON 지정이 있으면 우선(파일이 있을 때만)."""
+        override = _env("SPSS_AGENT_PYTHON")
+        if override and Path(override).is_file():
+            return Path(override)
+        for d in PYTHON_DIRS:
+            p = Path(self.home) / d / "python.exe"
+            if p.is_file():
+                return p
+        return Path(self.home) / ("Python" if (self.version or 99) <= 23 else "Python3") / "python.exe"
 
     @property
     def python_ready(self) -> bool:
         return self.python_exe.is_file()
 
+    @property
+    def python_line(self) -> str:
+        """폴더 이름 기준 추정(Python3 = 3.x, 그 밖 = 2.7)."""
+        return "3.x" if self.python_exe.parent.name.lower() == "python3" else "2.7"
+
+    @property
+    def supported(self) -> bool | None:
+        return None if self.version is None else self.version >= MIN_SUPPORTED_VERSION
+
     def public_dict(self) -> dict:
         return {"home": self.home, "version": self.version, "source": self.source,
-                "python_ready": self.python_ready}
+                "python_ready": self.python_ready, "python_line": self.python_line if self.python_ready else None,
+                "supported": self.supported}
 
 
 def _version_of(path: str) -> int | None:
@@ -81,8 +119,12 @@ def registry() -> list[SpssInstall]:
         import winreg  # type: ignore
 
         for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-            try:
-                with winreg.OpenKey(hive, r"SOFTWARE\IBM\SPSS Statistics") as key:
+            for key_path in REGISTRY_KEYS:
+                try:
+                    key = winreg.OpenKey(hive, key_path)
+                except OSError:
+                    continue
+                with key:
                     i = 0
                     while True:
                         try:
@@ -90,19 +132,27 @@ def registry() -> list[SpssInstall]:
                         except OSError:
                             break
                         i += 1
-                        try:
-                            with winreg.OpenKey(key, ver) as vk:
-                                home, _ = winreg.QueryValueEx(vk, "InstallationDirectory")
-                        except OSError:
-                            continue
-                        if (Path(home) / "stats.exe").is_file():
+                        home = _registry_home(winreg, key, ver)
+                        if home and (Path(home) / "stats.exe").is_file():
                             v = int(re.match(r"\d+", ver).group()) if re.match(r"\d+", ver) else _version_of(home)
                             out.append(SpssInstall(str(Path(home)), v, "registry"))
-            except OSError:
-                continue
     except ImportError:
         pass
     return out
+
+
+def _registry_home(winreg, key, ver: str) -> str | None:
+    try:
+        with winreg.OpenKey(key, ver) as vk:
+            for name in REGISTRY_VALUES:
+                try:
+                    home, _ = winreg.QueryValueEx(vk, name)
+                    return str(home)
+                except OSError:
+                    continue
+    except OSError:
+        return None
+    return None
 
 
 def choose(installs: list[SpssInstall], preferred_home: str | None = None) -> SpssInstall | None:
@@ -115,10 +165,11 @@ def choose(installs: list[SpssInstall], preferred_home: str | None = None) -> Sp
         if (home / "stats.exe").is_file():
             return SpssInstall(str(home), _version_of(str(home)), "user")
     usable = [i for i in installs if i.python_ready] or installs
-    return max(usable, key=lambda i: i.version or 0) if usable else None
+    # 지원 범위(22 이상)·Python 준비 우선, 그다음 최신 버전
+    return max(usable, key=lambda i: (i.supported is not False, i.version or 0)) if usable else None
 
 
 def discover(preferred_home: str | None = None) -> tuple[list[SpssInstall], SpssInstall | None]:
-    preferred_home = preferred_home or os.environ.get("SPSS_AGENT_HOME") or None
+    preferred_home = preferred_home or _env("SPSS_AGENT_HOME")
     installs = scan()
     return installs, choose(installs, preferred_home)

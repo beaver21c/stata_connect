@@ -14,3 +14,4 @@ NPAR TESTS /M-W=score BY group(1 2).
 
 ## 보고
 - 집단별 N·평균·표준편차, t, 자유도, p, 평균 차이 신뢰구간, 등분산 가정 여부
+- 효과크기: SPSS 27 이상은 `T-TEST ... /ES DISPLAY(TRUE)`(Cohen's d 등) [2차 확인: IBM T-TEST ES 하위명령 문서·제3자 안내]. 22~26에는 없음 → 연구자와 산출 방법 합의(AI 직접 계산 금지)

@@ -24,3 +24,16 @@ jobs:
 
   package-windows:
     uses: ./.github/workflows/package-windows.yml
+
+  # SPSS 22~26 대비: 엔진 스크립트를 Python 2.7·3.4에서 실제 실행(가짜 spss 모듈)
+  spss-legacy-python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["python:2.7-slim", "python:3.4-slim"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine on ${{ matrix.image }}
+        run: docker run --rm -v "$PWD:/w" -w /w ${{ matrix.image }} python tests/legacy/run_engine_check.py
+
