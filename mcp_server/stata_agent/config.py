@@ -12,6 +12,8 @@
 | STATA_AGENT_EDITOR | doedit | 편집기 연동 방식(doedit / none) |
 | STATA_AGENT_REPORT_DIR | ~/Documents/StataAgent | 점검 보고서 저장 폴더 |
 | STATA_AGENT_STATA_VERSION | (탐지) | do-file version 선언 고정(예: 18) |
+| STATA_AGENT_DRIFT_CHECK | full | 연구자 조작 감지: full(구조+값 확인값) / structure(구조만) / off |
+| STATA_AGENT_DRIFT_MAX_CELLS | 50000000 | 값 확인값(datasignature)을 계산할 최대 관측치×변수 수 |
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ class Settings:
     editor: str
     report_dir: Path
     stata_version: int | None
+    drift_check: str = "full"
+    drift_max_cells: int = 50_000_000
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -74,4 +78,6 @@ class Settings:
             editor=(_env("STATA_AGENT_EDITOR") or "doedit").lower(),
             report_dir=Path(_env("STATA_AGENT_REPORT_DIR") or (Path.home() / "Documents" / "StataAgent")),
             stata_version=int(ver) if ver and ver.isdigit() else None,
+            drift_check=(_env("STATA_AGENT_DRIFT_CHECK") or "full").lower(),
+            drift_max_cells=_int("STATA_AGENT_DRIFT_MAX_CELLS", 50_000_000),
         )

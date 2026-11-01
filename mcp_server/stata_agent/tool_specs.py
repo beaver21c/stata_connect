@@ -42,7 +42,7 @@ _SECTIONS = {
         "required": ["title", "code"],
     },
 }
-_FILENAME = {"type": "string", "description": "프로젝트 폴더 기준 do-file 이름(예: 04_regress.do)"}
+_FILENAME = {"type": "string", "description": "프로젝트 폴더 기준 do-file 이름(예: 04_regress.do). 새 파일은 NN_영문명.do 규약, 기존 파일은 이름 무관"}
 
 TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
@@ -107,6 +107,25 @@ TOOLS: tuple[ToolSpec, ...] = (
             "after": {"type": "string", "description": "add 위치: 이 섹션 뒤(생략 시 맨 끝)"},
         },
         ("filename", "action"),
+    ),
+    ToolSpec(
+        "stata_check_changes",
+        "마지막 AI 작업 이후 연구자가 Stata 창에서 한 조작 점검(읽기 전용): 자료 상태 변화(관측치 수·변수 추가/삭제·"
+        "이름 변경 추정·유형·값 라벨·리코드 등 값 변경), 창에서 입력한 명령(cmdlog), do-file 직접 수정. "
+        "연구자가 창에서 작업했다고 할 때 또는 실행 결과에 '연구자 조작 감지' 경고가 나올 때 사용.",
+        True,
+    ),
+    ToolSpec(
+        "stata_import_dofile",
+        "연구자가 쓰던 do-file을 이어 작업용으로 준비(실행하지 않음): 원본 백업 후 UTF-8 변환(cp949 등), 주석 제목"
+        "(책갈피 **#·장식 주석·번호 제목) 기준 섹션 표지 추가, list·browse·edit 줄 주석 처리(연구자 직접 실행 목록 반환), "
+        "차단·승인 대상과 프로젝트 밖 경로 보고, 00_master.do 맨 앞 등록. preview=true면 바꾸지 않고 계획만 반환.",
+        False,
+        {
+            "filename": {"type": "string", "description": "프로젝트 폴더 안 기존 do-file(이름 무관, 예: 분석_최종.do)"},
+            "preview": {"type": "boolean", "description": "true면 변경 없이 계획만 반환(먼저 보여 주고 동의받을 때)"},
+        },
+        ("filename",),
     ),
     ToolSpec(
         "stata_show_in_editor",

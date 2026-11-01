@@ -56,6 +56,8 @@ def dispatch(service: SpssAgentService, name: str, args: dict) -> ToolResult:
     if name == "spss_patch_syntax":
         return service.patch_syntax(a["filename"], a["action"], a.get("section_id"), a.get("title"),
                                     a.get("code"), a.get("after"))
+    if name == "spss_import_syntax":
+        return service.import_syntax(a["filename"], bool(a.get("preview")))
     if name == "spss_run_section":
         return service.run_section(a["filename"], a["section_id"], bool(a.get("acknowledge_risks")))
     if name == "spss_run_syntax_file":

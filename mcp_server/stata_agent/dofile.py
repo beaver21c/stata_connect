@@ -211,11 +211,17 @@ def render_master(do_files: list[str], version_line: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-_MASTER_DO_RE = re.compile(r'^\s*do\s+"?(?P<name>\d{2}_[^"\s]+\.do)"?\s*$', re.IGNORECASE)
+# 규약 이름(NN_이름.do)과 가져온 기존 파일(임의 이름, 따옴표) 모두 인식
+_MASTER_DO_RE = re.compile(r'^\s*do\s+(?:"(?P<q>[^"]+\.do)"|(?P<name0>\S+\.do))\s*$', re.IGNORECASE)
+
+
+def _master_name(m: re.Match) -> str:
+    return m.group("q") or m.group("name0")
 
 
 def master_entries(text: str) -> list[str]:
-    return [m.group("name") for line in text.splitlines() if (m := _MASTER_DO_RE.match(line))]
+    return [n for line in text.splitlines() if (m := _MASTER_DO_RE.match(line))
+            and (n := _master_name(m)) != MASTER_NAME]
 
 
 def ensure_master_includes(master_text: str | None, filename: str, version_line: str) -> str:
@@ -232,7 +238,8 @@ def ensure_master_includes(master_text: str | None, filename: str, version_line:
         m = _MASTER_DO_RE.match(line)
         if m:
             last_do = idx
-            if m.group("name") > filename:
+            # 가져온 기존 파일(규약 밖 이름)은 앞쪽 고정 → 번호 비교는 규약 이름끼리만
+            if FILENAME_RE.match(_master_name(m)) and _master_name(m) > filename:
                 insert_at = idx
                 break
     else:
@@ -241,10 +248,22 @@ def ensure_master_includes(master_text: str | None, filename: str, version_line:
     return "\n".join(lines) + "\n"
 
 
-def backup_file(path: Path, project_root: Path) -> Path | None:
+def ensure_master_first(master_text: str | None, filename: str, version_line: str) -> str:
+    """가져온 기존 do-file을 00_master.do의 do 목록 맨 앞에 등록(이미 있으면 그대로)."""
+    if master_text is None:
+        master_text = render_master([], version_line)
+    if filename in master_entries(master_text):
+        return master_text
+    lines = master_text.rstrip("\n").split("\n")
+    first_do = next((i for i, ln in enumerate(lines) if _MASTER_DO_RE.match(ln)), len(lines))
+    lines.insert(first_do, f'do "{filename}"')
+    return "\n".join(lines) + "\n"
+
+
+def backup_file(path: Path, project_root: Path, agent_dir: str = ".stata-agent") -> Path | None:
     if not path.is_file():
         return None
-    bdir = project_root / ".stata-agent" / "backups"
+    bdir = project_root / agent_dir / "backups"
     bdir.mkdir(parents=True, exist_ok=True)
     dest = bdir / f"{path.stem}.{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}{path.suffix}"
     shutil.copy2(path, dest)

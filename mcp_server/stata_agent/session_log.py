@@ -16,13 +16,15 @@ _ALLOWED_KEYS = {
     "tool", "session_id", "file", "section", "status", "return_code", "guard_action",
     "guard_rules", "blocked_output", "acknowledged_risks", "backend", "message", "reproduce",
     "backup", "action", "package", "estimates", "export_file", "client",
+    # 기존 파일 가져오기·연구자 조작 감지(개수·인코딩 이름만, 코드·값 없음)
+    "encoding", "sections", "commented", "manual", "drift",
 }
 
 
 RUN_TOOLS = {"stata_run_section", "stata_run_dofile", "spss_run_section", "spss_run_syntax_file"}
 REPRODUCE_TOOLS = {"stata_reproduce", "spss_reproduce"}
 WRITE_TOOLS = ("stata_write_dofile", "spss_write_syntax")
-PATCH_TOOLS = ("stata_patch_dofile", "spss_patch_syntax")
+PATCH_TOOLS = ("stata_patch_dofile", "spss_patch_syntax", "stata_import_dofile", "spss_import_syntax")
 
 
 class SessionLog:

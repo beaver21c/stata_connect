@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -219,7 +219,7 @@ stata-agent selftest --client "Claude Code"
 | 문법 guard(S01~S15) | `guard/policy.py` | 구현·차단/허용/승인 사례 테스트 |
 | 출력 필터 | `guard/output_filter.py` | 구현(합성 출력 기준) / **OMS TEXT 실제 형식 미확인** |
 | .sps 규약·00_master.sps | `syntaxfile.py`, `project.py` | 구현·테스트 |
-| 도구 13종·서비스·MCP 서버 | `tool_specs.py`, `service.py`, `server.py` | 구현·테스트, Claude Code CLI stdio 연결 `Connected` [1차 확인] |
+| 도구 14종·서비스·MCP 서버(§14 가져오기 포함) | `tool_specs.py`, `service.py`, `server.py` | 구현·테스트, Claude Code CLI stdio 연결 `Connected` [1차 확인] |
 | 자가 점검 T1~T10 | `selftest.py` | 가짜 엔진으로 전 항목 통과 / 실기 미검증 |
 | 스킬 | `plugins/spss-agent/skills/spss-analysis/` | 작성, 템플릿 동기화 테스트 |
 | 명령줄 | `spss-agent`(doctor·selftest·init-project·configure·render-templates·serve·setup·hook-guard) | 구현 |
@@ -325,7 +325,7 @@ spss-agent configure --clients claude-code --dry-run
 ### 11.6 실기 검증 체크리스트(Windows)
 - [ ] 다운로드한 exe 더블클릭 → SmartScreen 문구·"추가 정보 → 실행" 경로, 한글 콘솔 출력·입력
 - [ ] 설치 도우미: `%LOCALAPPDATA%\StataAgent` 복사, COM 등록 UAC 승인·거절 각각, Codex 설정 병합 결과
-- [ ] `.mcpb` 더블클릭 → Claude 앱 설치 화면, 서명 경고 문구, `user_config` 비워 둘 때 서버 동작, 도구 17종 표시
+- [ ] `.mcpb` 더블클릭 → Claude 앱 설치 화면, 서명 경고 문구, `user_config` 비워 둘 때 서버 동작, 도구 19종 표시
 - [ ] Claude 앱 Customize › Plugins › Add marketplace(`beaver21c/stata_connect`) → stata-agent 스킬 표시(채팅·Code 탭)
 - [ ] Code 탭에서 `/stata-agent:setup` 전 과정, 새 세션의 `.mcp.json` 승인 창, `${LOCALAPPDATA}` 확장
 - [ ] Code 탭(Windows)에서 hook 실행(`data\…` 읽기 명령 차단 메시지 표시, 일반 명령 통과)
@@ -397,3 +397,44 @@ spss-agent configure --clients claude-code --dry-run
 - [ ] 32비트판(22 등) 탐지(`Program Files (x86)`, WOW6432Node)
 - [ ] `.doc` 내보내기(27 이하)·`.xlsx`(22)
 - [ ] `spss-agent-<버전>.exe` 더블클릭·`.mcpb` 설치 화면·`/spss-agent:setup` 전 과정
+
+## 14. 기존 파일 이어 작업·연구자 조작 감지 (2026-11-01)
+
+### 14.1 배경·결정
+- 지적: 연구자가 쓰던 do-file을 넘겨받는 흐름이 막힘. 재현 확인 결과 [1차 확인]
+  - cp949(예전 Stata·다른 편집기) 파일은 실행·수정 즉시 실패(UnicodeDecodeError)
+  - 섹션 표지가 없으면 원래 내용이 머리말로 취급되어 섹션 실행에서 빠짐
+  - `list`·`browse` 포함 시 전체 실행 차단
+- 정정 기록: 앞서 "파일 이름 규약이 아니면 작성·수정 도구가 거부"라고 답했으나, 실제로는 **새 파일 작성 도구만** 규약을 적용하고 수정·실행 도구는 이름과 무관하게 받음(작성 도구 코드만 보고 수정 경로를 확인하지 않은 것이 원인)
+- 원인: 설계·테스트가 "AI가 처음부터 만드는 프로젝트"만 가정
+- 사용자 결정: 원본은 같은 파일을 고치고 백업, 원래 내용은 주석 제목 기준 자동 분할
+- 추가 요구: 창 연동 중 사람이 Stata 창에서 작업(clear·rename·recode·do-file 직접 수정)한 경우 경고 수준으로 알리고 이어받기
+
+### 14.2 구현 대응
+| 구성 | 파일 | 내용 |
+|---|---|---|
+| 인코딩 | `stata_agent/importer.py`(`decode_text`), 두 서비스 `_read_dofile`·`_read_syntax` | UTF-8(BOM) → cp949 → 시스템 인코딩 순 판별. 비UTF-8 파일을 실행·수정하려 하면 기술 오류 대신 가져오기 도구 안내 |
+| Stata 가져오기 | `stata_import_dofile` | 제목 탐지는 가장 강한 형식 하나만 사용(책갈피 `**#` > 장식·상자형 주석 > 번호 제목). 블록 주석·중괄호·program·mata·python·`#delimit ;`·`///` 안에서는 나누지 않음. `list`·`browse`·`edit` 줄은 주석 처리(중괄호가 같은 줄·`#delimit ;`·이어 쓰기 둘째 줄은 수동 수정 목록). 그 밖 차단·승인·프로젝트 밖 경로는 보고만. 원본 백업, 00_master.do 맨 앞 등록, `preview` 지원 |
+| SPSS 가져오기 | `spss_import_syntax`, `spss_agent/importer.py` | 명령 경계(split_commands) 기준 한 줄 주석 명령만 제목 후보. DO IF·LOOP·DO REPEAT·INPUT PROGRAM·MATRIX·FILE TYPE·DEFINE 안에서는 나누지 않음. 행 출력 명령은 첫 줄에 `*`를 붙여 명령 전체를 주석화(마침표로 끝나지 않는 명령은 수동 수정). 결과는 UTF-8 BOM(.sps 규약) |
+| 00_master 인식 | `dofile.master_entries`·`syntaxfile.master_entries` | 규약 밖 이름(따옴표) 인식, 번호 순서 비교는 규약 이름끼리만 |
+| SPSS 백업 폴더 | `backup_file(agent_dir)` | 기존 결함 수정: SPSS 백업이 `.stata-agent/backups`로 가던 것을 `.spss-agent/backups`로 |
+| SPSS 규약 밖 이름 실행 | `result_relpath` | `NN_` 없는 이름은 `output/logs/<이름>_result.txt` |
+| 자료 상태 지문 | `stata_agent/sync.py` | 관측치 수·변수 수·자료 파일·변수별 이름/유형/값 라벨·`datasignature`(변수 300개 이하는 변수별, 초과는 전체). r()는 `_return hold/restore`로 보존. AI 실행 직후 기록 → 다음 실행 직전 비교 → 결과 첫머리에 경고. 이름 변경은 위치·유형이 같고 값 확인값이 같을 때만 "이름 변경 추정"(drop 후 새로 만든 경우와 구분) |
+| 창에서 친 명령 | 세션 시작 시 `cmdlog using .stata-agent/cmdlog.txt, append` | AI 실행·내부 실행 직후마다 읽은 위치를 끝으로 옮겨, 그 사이 쌓인 줄만 "연구자 입력 추정"으로 보고 |
+| do-file 직접 수정 | `FileWatch`(Stata·SPSS) | AI가 마지막으로 쓰거나 읽은 내용과 디스크가 다르면 섹션 단위(변경·추가·삭제·머리말)로 알리고 디스크 기준으로 이어 감 |
+| 점검 도구 | `stata_check_changes`(읽기 전용) | 위 세 가지를 한 번에 보고하고 기준 갱신. 남길 명령은 동의 후 '연구자 수동 작업' 섹션으로 기록하도록 안내 |
+| 설정 | `STATA_AGENT_DRIFT_CHECK`(full·structure·off), `STATA_AGENT_DRIFT_MAX_CELLS`(기본 5천만 칸) | 큰 자료는 값 확인값 생략 |
+| 기록 | `session_log` | 인코딩 이름·섹션 수·주석 처리 수·감지 건수만(코드·값 없음) |
+
+### 14.3 지위·한계
+- [1차 확인] 가짜 백엔드·가짜 spss로 cp949 가져오기 → 실행·섹션 실행·섹션 추가, 이름 변경·리코드·삭제·추가·clear·다른 자료 감지, cmdlog 줄 보고, do-file 수정 감지까지 자동 테스트
+- [미확인: 실기] `datasignature`(변수 지정·strL 처리), `_return hold/restore`, `cmdlog`가 자동화(COM)로 보낸 명령을 기록하는지, Do-file Editor '선택 실행'이 cmdlog에 남는 형태, 대용량 자료에서 점검 시간
+- [논리적 추론] AI 실행 중에 사람이 동시에 친 명령은 AI 실행분과 구분되지 않아 보고에서 빠질 수 있음 → 안내 문구로 "AI 실행 중에는 기다릴 것"
+- 연구자가 창에서 한 일의 **출력**은 AI에 전달하지 않음(명령 문자열만)
+
+### 14.4 실기 검증 체크리스트
+- [ ] Stata 13 이하에서 저장한 한글 do-file 가져오기 → Stata 17+에서 주석·라벨 정상 표시
+- [ ] 책갈피·장식·번호 제목이 섞인 실제 연구 do-file 분할 결과 확인
+- [ ] 창에서 `rename`·`recode`·`replace`·`clear`·다른 자료 `use` 후 AI 실행 → 경고 내용 확인
+- [ ] cmdlog 기록 내용(연구자 입력 vs AI 실행 구분), Do-file Editor 선택 실행
+- [ ] 변수 수 많은 자료(예: 2,000개)·큰 자료(예: 100만 관측치)에서 점검 시간

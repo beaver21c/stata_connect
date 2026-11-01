@@ -16,6 +16,7 @@
       "mcp__spss__spss_load_data",
       "mcp__spss__spss_write_syntax",
       "mcp__spss__spss_patch_syntax",
+      "mcp__spss__spss_import_syntax",
       "mcp__spss__spss_run_section",
       "mcp__spss__spss_run_syntax_file",
       "mcp__spss__spss_export",

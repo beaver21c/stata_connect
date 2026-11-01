@@ -18,6 +18,9 @@ from stata_agent.session_log import SessionLog, disclosure_draft
 
 from . import __version__
 from .backend import SpssBackend
+from stata_agent.sync import FileWatch
+
+from .importer import build_imported_syntax, outside_paths
 from .resources import SPSS
 from .backend import read_output as read_output_file
 from .discovery import SpssInstall, discover
@@ -30,6 +33,7 @@ from .syntaxfile import (
     SyntaxFile,
     SyntaxFileError,
     backup_file,
+    ensure_master_first,
     ensure_master_includes,
     master_entries,
     new_syntax,
@@ -57,6 +61,7 @@ class SpssAgentService:
         self.filter_cfg = FilterConfig(max_chars=self.settings.max_output_chars)
         self.project_root: Path | None = None
         self.log: SessionLog | None = None
+        self.files = FileWatch(SyntaxFile.parse)  # 연구자가 .sps를 직접 고친 경우 알림
         self.last_out: Path | None = None
 
     # ── 공통 ──
@@ -219,8 +224,9 @@ class SpssAgentService:
             content = new_syntax(filename, pairs, author or "AI")
         except (SyntaxFileError, ServiceError) as e:
             return ToolResult(str(e), True)
-        bak = backup_file(path, root) if path.exists() else None
+        bak = backup_file(path, root, AGENT_DIR) if path.exists() else None
         path.write_text(content, encoding=ENCODING)
+        self.files.remember(path, content)
         master = root / MASTER_NAME
         master.write_text(ensure_master_includes(
             master.read_text(encoding="utf-8-sig") if master.is_file() else None, filename), encoding=ENCODING)
@@ -239,7 +245,9 @@ class SpssAgentService:
             path = self._project_file(filename)
             if not path.is_file():
                 return ToolResult(f"파일 없음: {filename} → spss_write_syntax로 먼저 작성", True)
-            doc = SyntaxFile.parse(path.read_text(encoding="utf-8-sig"))
+            current = self._read_syntax(path)
+            file_notes = self.files.changes(path, current)
+            doc = SyntaxFile.parse(current)
             if action == "add":
                 sec = doc.add(title or "추가 섹션", code or "", after=after, section_id=section_id)
             elif action in ("replace", "delete"):
@@ -250,32 +258,110 @@ class SpssAgentService:
                 return ToolResult(f"알 수 없는 action: {action}", True)
         except (SyntaxFileError, ServiceError) as e:
             return ToolResult(str(e), True)
-        bak = backup_file(path, root)
-        path.write_text(doc.render(), encoding=ENCODING)
+        bak = backup_file(path, root, AGENT_DIR)
+        rendered = doc.render()
+        path.write_text(rendered, encoding=ENCODING)
+        self.files.remember(path, rendered)
         guard = self._guard(sec.code()) if action != "delete" else GuardResult()
         self._record("spss_patch_syntax", file=filename, section=sec.id, action=action, status="ok",
                      backup=str(bak) if bak else None)
         lines = [f"✅ {filename} {sec.id} {({'add': '추가', 'replace': '교체', 'delete': '삭제'})[action]}"
                  f" (백업: {bak.name if bak else '없음'})"]
+        lines += [f"⚠️ {n}" for n in file_notes]
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
+        return ToolResult("\n".join(lines))
+
+    def _read_syntax(self, path: Path) -> str:
+        """UTF-8 문법 파일만 읽음. 그 밖(SPSS 코드페이지 모드의 cp949 등)은 가져오기 도구 안내."""
+        from stata_agent.importer import decode_text, is_utf8
+
+        data = path.read_bytes()
+        if not is_utf8(data):
+            _, enc = decode_text(data)
+            raise ServiceError(f"UTF-8이 아닌 파일({enc} 추정): {path.name} → spss_import_syntax로 가져오기"
+                               "(원본 백업 후 UTF-8 변환·섹션 표지 추가)를 먼저 실행")
+        return data.decode("utf-8").lstrip("\ufeff")
+
+    def import_syntax(self, filename: str, preview: bool = False) -> ToolResult:
+        """연구자가 쓰던 .sps를 이어 작업용으로 준비(그 자리 수정 + 백업). 실행하지 않음."""
+        from stata_agent.importer import decode_text
+
+        root = self._require_project()
+        try:
+            path = self._project_file(filename)
+        except ServiceError as e:
+            return ToolResult(str(e), True)
+        if path.suffix.lower() != ".sps" or not path.is_file():
+            return ToolResult(f"문법 파일 없음: {filename} (프로젝트 폴더 안 .sps 파일)", True)
+        if path.name == MASTER_NAME:
+            return ToolResult(f"{MASTER_NAME}는 자동 관리 대상", True)
+        data = path.read_bytes()
+        text, enc = decode_text(data)
+        text = text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+        guard = self._guard(text)
+        row_lines = [f.line for f in guard.findings if f.rule == "S01" and not f.source]
+        new_text, meta, kind, commented, manual = build_imported_syntax(text, row_lines)
+        handled = {ln for ln, _ in commented} | {ln for ln, _ in manual}
+        others = [f.as_text() for f in guard.findings
+                  if not (f.rule == "S01" and not f.source and f.line in handled)]
+        converted = enc not in ("utf-8", "utf-8-sig")
+        paths = outside_paths(text.split("\n"), root)
+        lines = [f"{'미리보기(변경 없음)' if preview else '✅ 가져오기 완료'}: {filename}"]
+        lines.append(f"- 인코딩: {enc}" + (" → UTF-8(BOM)로 변환" if converted else " (변환 없음)"))
+        if not meta:
+            lines.append("- 섹션 표지: 이미 있음(분할 생략)")
+        else:
+            how = {"decorated": "장식 주석 제목", "numbered": "번호 제목", None: "제목을 찾지 못해 통째로 1개"}[kind]
+            lines.append(f"- 섹션 {len(meta)}개({how} 기준):")
+            lines += [f"  {sid} {title} (원래 {ln}행부터)" for sid, title, ln in meta]
+        if commented:
+            lines.append("- 원자료 보호로 주석 처리한 명령(연구자가 SPSS에서 직접 실행):")
+            lines += [f"  {ln}행: {code}" for ln, code in commented]
+        if manual:
+            lines.append("- 손으로 고쳐야 하는 명령(마침표 없이 끝나는 명령 등):")
+            lines += [f"  {ln}행: {code}" for ln, code in manual]
+        if others:
+            lines.append("- 실행 전 확인 대상(파일은 그대로 둠): " + "; ".join(others[:15])
+                         + (f" 외 {len(others) - 15}건" if len(others) > 15 else ""))
+        if paths:
+            lines.append("- 프로젝트 폴더 밖 경로(재현을 위해 자료를 data/로 옮기는 것을 권장):")
+            lines += [f"  {ln}행: {code}" for ln, code in paths[:10]]
+        if preview:
+            return ToolResult("\n".join(lines))
+        bak = backup_file(path, root, AGENT_DIR)
+        path.write_text(new_text, encoding=ENCODING)
+        self.files.remember(path, new_text)
+        lines.append(f"- 원본 백업: {AGENT_DIR}/backups/{bak.name if bak else '없음'}")
+        master = root / MASTER_NAME
+        master.write_text(ensure_master_first(master.read_text(encoding="utf-8-sig") if master.is_file() else None,
+                                              path.relative_to(root).as_posix()), encoding=ENCODING)
+        lines.append(f"- {MASTER_NAME} 맨 앞에 등록")
+        lines.append("다음: spss_run_syntax_file로 이 파일 전체를 한 번 실행해 자료 상태를 복원한 뒤 "
+                     "spss_patch_syntax(action=add)로 새 섹션을 이어 붙임")
+        self._record("spss_import_syntax", file=filename, status="ok", encoding=enc,
+                     sections=len(meta), commented=len(commented), manual=len(manual))
         return ToolResult("\n".join(lines))
 
     def run_section(self, filename: str, section_id: str, acknowledge_risks: bool = False) -> ToolResult:
         try:
             path = self._project_file(filename)
-            sec = SyntaxFile.parse(path.read_text(encoding="utf-8-sig")).get(section_id)
+            current = self._read_syntax(path)
+            file_notes = self.files.changes(path, current)
+            sec = SyntaxFile.parse(current).get(section_id)
         except (SyntaxFileError, ServiceError, OSError) as e:
             return ToolResult(str(e), True)
         root = self._require_project()
-        return self._guarded_run("spss_run_section", sec.code() + "\n", root / AGENT_DIR / "section.txt",
-                                 acknowledge_risks, file=filename, section=sec.id)
+        result = self._guarded_run("spss_run_section", sec.code() + "\n", root / AGENT_DIR / "section.txt",
+                                   acknowledge_risks, file=filename, section=sec.id)
+        if file_notes:
+            result.text = "".join(f"⚠️ {n}\n" for n in file_notes) + result.text
+        return result
 
     def run_syntax_file(self, filename: str, acknowledge_risks: bool = False) -> ToolResult:
         try:
             path = self._project_file(filename)
-            content = path.read_text(encoding="utf-8-sig")
-            validate_filename(path.name)
+            content = self._read_syntax(path)
         except (SyntaxFileError, ServiceError, OSError) as e:
             return ToolResult(str(e), True)
         root = self._require_project()

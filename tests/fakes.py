@@ -36,6 +36,15 @@ def echo(code: str) -> str:
 
 def default_responder(code: str, state: dict) -> str:
     out: list[str] = []
+    if "SASTATE" in code:
+        # 연구자 조작 흉내: state["vars"]·["n"]·["sig"]를 테스트가 바꿈
+        vars_ = state.setdefault("vars", [(n, t, vl) for n, t, vl, _, _ in AUTO_VARS])
+        sig = state.setdefault("sig", {n: f"74:{n}" for n, _, _ in vars_})
+        out += [f"SASTATE|N|{state.get('n', 74)}", f"SASTATE|K|{len(vars_)}",
+                f"SASTATE|F|{state.get('file', 'C:/Program Files/Stata18/ado/base/a/auto.dta')}"]
+        out += [f"SAVS|{n}|{t}|{vl}" for n, t, vl in vars_]
+        if "datasignature" in code:
+            out += [f"SASIG|{n}|{sig.get(n, '')}" for n, _, _ in vars_]
     if "SASCHEMA" in code:
         out.append("SASCHEMA|N|74")
         out.append(f"SASCHEMA|K|{len(AUTO_VARS)}")

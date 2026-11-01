@@ -288,7 +288,7 @@ def test_unavailable_without_install(settings, project):
 # ── 서버·스킬·템플릿 ───────────────────────────────────────────
 def test_tool_list_and_profile():
     names = {t.name for t in spss_server.list_tool_objects()}
-    assert names == {t.name for t in TOOLS} and len(names) == 13
+    assert names == {t.name for t in TOOLS} and len(names) == 14
     assert PROFILE.server_name == "spss" and "spss_schema" in PROFILE.read_only_tools
 
 
@@ -300,7 +300,7 @@ def test_in_memory_roundtrip(settings, project, fake_home, monkeypatch):
 
     async def run():
         async with create_connected_server_and_client_session(spss_server.server) as client:
-            assert len((await client.list_tools()).tools) == 13
+            assert len((await client.list_tools()).tools) == 14
             r = await client.call_tool("spss_open_session", {"project_dir": str(project)})
             assert "SPSS 세션 준비" in r.content[0].text
             r = await client.call_tool("spss_run_section", {"filename": "01_x.sps", "section_id": "S01"})

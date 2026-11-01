@@ -31,6 +31,7 @@ from .dofile import (
     DoFile,
     DoFileError,
     backup_file,
+    ensure_master_first,
     ensure_master_includes,
     new_dofile,
     section_run_code,
@@ -40,6 +41,8 @@ from .editor_sync import EditorSync
 from .guard.command_policy import ACTION_LABEL, Action, CommandGuard, GuardContext, GuardResult, default_file_reader
 from .guard.output_filter import FilterConfig, extract_markers, filter_output
 from .guard.stata_lexer import iter_statements, parse_command, abbrev_match
+from .importer import ImportReport, build_imported_dofile, decode_text, is_utf8, outside_paths
+from .sync import CmdlogReader, DataState, FileWatch, diff_states, parse_state, state_code
 from .log_compare import compare_logs
 from .project import init_project
 from .resources import hook_command
@@ -134,6 +137,9 @@ class StataAgentService:
         self.project_root: Path | None = None
         self.session_id: str | None = None
         self.variables: set[str] | None = None
+        self.data_state: DataState | None = None
+        self.cmdlog: CmdlogReader | None = None
+        self.files = FileWatch(DoFile.parse)
         self.version_line = f"version {self.settings.stata_version}" if self.settings.stata_version else None
         self.log: SessionLog | None = None
         self.last_log_path: Path | None = None
@@ -181,6 +187,15 @@ class StataAgentService:
             raise ServiceError(f"프로젝트 폴더 밖 경로 거부: {filename}")
         return path
 
+    def _read_dofile(self, path: Path) -> str:
+        """UTF-8 do-file만 읽음. 그 밖(예전 Stata·다른 편집기의 cp949)은 가져오기 도구 안내."""
+        data = path.read_bytes()
+        if not is_utf8(data):
+            _, enc = decode_text(data)
+            raise ServiceError(f"UTF-8이 아닌 파일({enc} 추정): {path.name} → stata_import_dofile로 가져오기"
+                               "(원본 백업 후 UTF-8 변환·섹션 표지 추가)를 먼저 실행")
+        return data.decode("utf-8").lstrip("\ufeff")
+
     def _guard(self, code: str) -> GuardResult:
         root = self._require_project()
         ctx = GuardContext(
@@ -213,7 +228,51 @@ class StataAgentService:
 
     def _run_internal(self, code: str) -> RunOutcome:
         root = self._require_project()
-        return self.backend.run_code(code, self.session_id or "", root)
+        out = self.backend.run_code(code, self.session_id or "", root)
+        self._mark_cmdlog()
+        return out
+
+    # ── 연구자 조작 감지(창 연동 세션) ──
+    def _drift_enabled(self) -> bool:
+        return self.backend.persistent_session and self.settings.drift_check != "off"
+
+    def _mark_cmdlog(self) -> None:
+        if self.cmdlog is not None:
+            self.cmdlog.mark_end()
+
+    def _capture_state(self) -> DataState | None:
+        if not self._drift_enabled() or self.project_root is None:
+            return None
+        out = self._run_internal(state_code(self.settings.drift_max_cells, self.settings.drift_check == "full"))
+        return parse_state(out.log_text)
+
+    def _precheck(self) -> list[str]:
+        """마지막 AI 실행 이후 연구자 조작(자료 상태 변화·수동 명령) 확인 후 기준 갱신."""
+        if not self._drift_enabled() or self.project_root is None:
+            return []
+        manual = self.cmdlog.read_new() if self.cmdlog is not None else []
+        new = self._capture_state()
+        diffs = diff_states(self.data_state, new) if (self.data_state and new) else []
+        if new is not None:
+            if diffs:
+                self.variables = set(new.names) if new.names else None
+            self.data_state = new
+        notes = []
+        if diffs:
+            notes.append("자료 상태 변화: " + " / ".join(diffs))
+        if manual:
+            notes.append("Stata 창에서 입력된 명령(연구자 입력 추정): " + " | ".join(manual[:20])
+                         + (f" 외 {len(manual) - 20}줄" if len(manual) > 20 else ""))
+        if notes:
+            self._record("stata_check_changes", status="drift", drift=len(diffs) + len(manual))
+        return notes
+
+    @staticmethod
+    def _drift_text(notes: list[str]) -> str:
+        if not notes:
+            return ""
+        return ("⚠️ 연구자 조작 감지(마지막 AI 실행 이후)\n" + "\n".join(f"- {n}" for n in notes)
+                + "\n→ 연구자에게 확인하고, 남길 명령은 동의를 받아 do-file 섹션('연구자 수동 작업')으로 추가\n\n")
 
     # ── 고유값 점검(식별자 성격 변수) ──
     def _identifier_check(self, guard: GuardResult) -> list[dict]:
@@ -267,6 +326,24 @@ class StataAgentService:
 
     # ── 실행 공통 흐름 ──
     def _guarded_run(self, tool: str, code_for_guard: str, runner, acknowledge: bool, **record) -> ToolResult:
+        notes = self._precheck()
+        ran: list[bool] = []
+
+        def tracked_runner():
+            ran.append(True)
+            return runner()
+
+        result = self._guarded_run_inner(tool, code_for_guard, tracked_runner, acknowledge, **record)
+        if ran and self._drift_enabled():  # 실제로 실행했을 때만 AI 실행 뒤 상태를 기준으로 기록
+            self._mark_cmdlog()
+            state = self._capture_state()
+            if state is not None:
+                self.data_state = state
+        if notes:
+            result.text = self._drift_text(notes) + result.text
+        return result
+
+    def _guarded_run_inner(self, tool: str, code_for_guard: str, runner, acknowledge: bool, **record) -> ToolResult:
         guard = self._guard(code_for_guard)
         if guard.blocked:
             self._record(tool, status="blocked", guard_action=ACTION_LABEL[guard.action],
@@ -357,6 +434,15 @@ class StataAgentService:
         self.project_root, self.session_id = root, sid
         self.variables = None
         self.log = SessionLog(root)
+        self.cmdlog, self.data_state = None, None
+        if self._drift_enabled():
+            cmd_path = root / ".stata-agent" / "cmdlog.txt"
+            cmd_path.parent.mkdir(parents=True, exist_ok=True)
+            self.backend.run_code(f'capture cmdlog using "{stata_path(cmd_path)}", append',
+                                  self.session_id or "", root)
+            self.cmdlog = CmdlogReader(cmd_path)
+            self.cmdlog.enabled = cmd_path.is_file()
+            self.data_state = self._capture_state()
         self._record("stata_open_session", status="ok")
         lines = [
             f"✅ 세션 준비: {sid} ({self.backend.name}, {self.backend_reason})",
@@ -395,6 +481,8 @@ class StataAgentService:
         schema = parse_schema(outcome.log_text)
         if schema:
             self.variables = {v["name"] for v in schema["variables"]}
+        if self._drift_enabled():
+            self.data_state = self._capture_state()
         self._record("stata_load_data", status="ok")
         n = schema["N"] if schema else "?"
         k = schema["K"] if schema else "?"
@@ -404,10 +492,13 @@ class StataAgentService:
         self._require_project()
         if not self.backend.persistent_session:
             return ToolResult("배치 모드에서는 현재 자료가 메모리에 없음 → 섹션 코드에 자료 불러오기 포함", True)
+        notes = self._precheck()
         schema = self._refresh_variables()
         self._record("stata_schema", status="ok" if schema else "error")
         if schema is None:
             return ToolResult("스키마 조회 실패(자료가 불러와져 있는지 확인)", True)
+        if notes:
+            schema = {"researcher_changes": notes, **schema}
         return ToolResult(json.dumps(schema, ensure_ascii=False, indent=2))
 
     def write_dofile(self, filename: str, sections: list[dict], author: str | None = None,
@@ -426,6 +517,7 @@ class StataAgentService:
             return ToolResult(str(e), True)
         bak = backup_file(path, root)
         path.write_text(content, encoding="utf-8")
+        self.files.remember(path, content)
         master = root / MASTER_NAME
         master.write_text(
             ensure_master_includes(master.read_text(encoding="utf-8") if master.is_file() else None,
@@ -449,7 +541,9 @@ class StataAgentService:
             path = self._project_file(filename)
             if not path.is_file():
                 return ToolResult(f"파일 없음: {filename} → stata_write_dofile로 먼저 작성", True)
-            doc = DoFile.parse(path.read_text(encoding="utf-8"))
+            current = self._read_dofile(path)
+            file_notes = self.files.changes(path, current)
+            doc = DoFile.parse(current)
             if action == "add":
                 sec = doc.add(title or "추가 섹션", code or "", after=after, section_id=section_id)
             elif action == "replace":
@@ -465,18 +559,114 @@ class StataAgentService:
         except (DoFileError, ServiceError) as e:
             return ToolResult(str(e), True)
         bak = backup_file(path, root)
-        path.write_text(doc.render(), encoding="utf-8")
+        rendered = doc.render()
+        path.write_text(rendered, encoding="utf-8")
+        self.files.remember(path, rendered)
         guard = self._guard(sec.code()) if action != "delete" else GuardResult()
         shown = self.editor.show(path, self.session_id or "")
         self._record("stata_patch_dofile", file=filename, section=sec.id, action=action, status="ok",
                      backup=str(bak) if bak else None)
         lines = [f"✅ {filename} {sec.id} {({'add': '추가', 'replace': '교체', 'delete': '삭제'})[action]}"
                  f" (백업: {bak.name if bak else '없음'})"]
+        lines += [f"⚠️ {n}" for n in file_notes]
         if action == "delete":
             lines.append("참고: 원칙상 원 결과 섹션은 삭제보다 수정 섹션 추가가 권장됨")
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
         lines.append(f"편집기: {shown.message}")
+        return ToolResult("\n".join(lines))
+
+    def import_dofile(self, filename: str, preview: bool = False) -> ToolResult:
+        """연구자가 쓰던 do-file을 이어 작업용으로 준비(그 자리 수정 + 백업). 실행하지 않음."""
+        root = self._require_project()
+        try:
+            path = self._project_file(filename)
+        except ServiceError as e:
+            return ToolResult(str(e), True)
+        if path.suffix.lower() != ".do" or not path.is_file():
+            return ToolResult(f"do-file 없음: {filename} (프로젝트 폴더 안 .do 파일)", True)
+        if path.name == MASTER_NAME:
+            return ToolResult(f"{MASTER_NAME}는 자동 관리 대상", True)
+        data = path.read_bytes()
+        text, enc = decode_text(data)
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        guard = self._guard(text)
+        row_lines = [f.line for f in guard.findings if f.rule == "G01" and not f.source]
+        new_text, meta, kind, commented, manual = build_imported_dofile(text, row_lines)
+        handled = {ln for ln, _ in commented} | {ln for ln, _ in manual}
+        others = [f.as_text() for f in guard.findings
+                  if not (f.rule == "G01" and not f.source and f.line in handled)]
+        report = ImportReport(encoding=enc, converted=enc not in ("utf-8",), already_sectioned=not meta,
+                              sections=meta, heading_kind=kind, commented=commented, manual=manual,
+                              findings=others, outside_paths=outside_paths(text.split("\n"), root))
+        unchanged = new_text == text if text.endswith("\n") else new_text == text + "\n"
+        lines = [f"{'미리보기(변경 없음)' if preview else '✅ 가져오기 완료'}: {filename}"]
+        lines.append(f"- 인코딩: {enc}" + (" → UTF-8로 변환" if report.converted else " (변환 없음)"))
+        if report.already_sectioned:
+            lines.append("- 섹션 표지: 이미 있음(분할 생략)")
+        else:
+            how = {"bookmark": "책갈피(**#)", "decorated": "장식 주석 제목", "numbered": "번호 제목",
+                   None: "제목을 찾지 못해 통째로 1개"}[kind]
+            lines.append(f"- 섹션 {len(meta)}개({how} 기준):")
+            lines += [f"  {sid} {title} (원래 {ln}행부터)" for sid, title, ln in meta]
+        if commented:
+            lines.append("- 원자료 보호로 주석 처리한 줄(연구자가 Stata 창에서 직접 실행):")
+            lines += [f"  {ln}행: {code}" for ln, code in commented]
+        if manual:
+            lines.append("- 손으로 고쳐야 하는 줄(중괄호·#delimit ;·이어 쓰기 안의 행 출력 명령):")
+            lines += [f"  {ln}행: {code}" for ln, code in manual]
+        if others:
+            lines.append("- 실행 전 확인 대상(파일은 그대로 둠): " + "; ".join(others[:15])
+                         + (f" 외 {len(others) - 15}건" if len(others) > 15 else ""))
+        if report.outside_paths:
+            lines.append("- 프로젝트 폴더 밖 경로(재현을 위해 자료를 data/로 옮기는 것을 권장):")
+            lines += [f"  {ln}행: {code}" for ln, code in report.outside_paths[:10]]
+        if preview:
+            return ToolResult("\n".join(lines))
+        if unchanged and not report.converted:
+            lines.append("- 파일 내용 변경 없음")
+        else:
+            bak = backup_file(path, root)
+            path.write_text(new_text, encoding="utf-8")
+            lines.append(f"- 원본 백업: .stata-agent/backups/{bak.name if bak else '없음'}")
+        self.files.remember(path, path.read_text(encoding="utf-8"))
+        master = root / MASTER_NAME
+        master.write_text(ensure_master_first(master.read_text(encoding="utf-8") if master.is_file() else None,
+                                              path.relative_to(root).as_posix(), self._version_line()),
+                          encoding="utf-8")
+        lines.append(f"- {MASTER_NAME} 맨 앞에 등록")
+        lines.append("다음: stata_run_dofile로 이 파일 전체를 한 번 실행해 자료 상태를 복원한 뒤 "
+                     "stata_patch_dofile(action=add)로 새 섹션을 이어 붙임")
+        self._record("stata_import_dofile", file=filename, status="ok", encoding=enc,
+                     sections=len(meta), commented=len(commented), manual=len(manual))
+        return ToolResult("\n".join(lines))
+
+    def check_changes(self) -> ToolResult:
+        """마지막 AI 작업 이후 연구자 조작(자료 상태·창에서 친 명령·do-file 수정) 점검. 기준을 지금 상태로 갱신."""
+        self._require_project()
+        notes = self._precheck()
+        for key in list(self.files.known):
+            path = Path(key)
+            if path.is_file():
+                try:
+                    notes += self.files.changes(path, self._read_dofile(path))
+                except ServiceError as e:
+                    notes.append(str(e))
+        lines = []
+        if not self._drift_enabled():
+            lines.append("자료 상태 비교: " + ("배치 모드라 해당 없음" if not self.backend.persistent_session
+                                          else "꺼짐(STATA_AGENT_DRIFT_CHECK=off)"))
+        elif self.cmdlog is not None and not self.cmdlog.enabled:
+            lines.append("참고: Stata 명령 기록(cmdlog)을 켜지 못함(이미 다른 cmdlog 사용 중 등) → 창에서 친 명령은 보고 불가")
+        if notes:
+            lines.append("⚠️ 마지막 AI 작업 이후 변경:")
+            lines += [f"- {n}" for n in notes]
+            lines.append("→ 연구자에게 의도한 변경인지 확인. 남길 명령은 동의를 받아 "
+                         "stata_patch_dofile(action='add', title='연구자 수동 작업', code=…)로 기록하고, "
+                         "변수 구조가 바뀌었으면 stata_schema로 다시 확인")
+        else:
+            lines.append("✅ 마지막 AI 작업 이후 변경 없음")
+        self._record("stata_check_changes", status="ok", drift=len(notes))
         return ToolResult("\n".join(lines))
 
     def show_in_editor(self, filename: str) -> ToolResult:
@@ -492,28 +682,37 @@ class StataAgentService:
     def run_section(self, filename: str, section_id: str, acknowledge_risks: bool = False) -> ToolResult:
         try:
             path = self._project_file(filename)
-            doc = DoFile.parse(path.read_text(encoding="utf-8"))
+            current = self._read_dofile(path)
+            file_notes = self.files.changes(path, current)
+            doc = DoFile.parse(current)
             code = section_run_code(doc, section_id, self._version_line())
             sid = doc.get(section_id).id
         except (DoFileError, ServiceError, OSError) as e:
             return ToolResult(str(e), True)
         root = self._require_project()
-        return self._guarded_run(
+        result = self._guarded_run(
             "stata_run_section", code,
             lambda: self.backend.run_code(code, self.session_id or "", root),
             acknowledge_risks, file=filename, section=sid)
+        if file_notes:
+            result.text = "".join(f"⚠️ {n}\n" for n in file_notes) + result.text
+        return result
 
     def run_dofile(self, filename: str, acknowledge_risks: bool = False) -> ToolResult:
         try:
             path = self._project_file(filename)
-            content = path.read_text(encoding="utf-8")
+            content = self._read_dofile(path)
+            file_notes = self.files.changes(path, content)
         except (ServiceError, OSError) as e:
             return ToolResult(str(e), True)
         root = self._require_project()
-        return self._guarded_run(
+        result = self._guarded_run(
             "stata_run_dofile", content,
             lambda: self.backend.run_dofile(path, self.session_id or "", root),
             acknowledge_risks, file=filename)
+        if file_notes:
+            result.text = "".join(f"⚠️ {n}\n" for n in file_notes) + result.text
+        return result
 
     def read_log(self, name: str | None = None, tail_lines: int | None = None, fmt: str = "text") -> ToolResult:
         root = self._require_project()
