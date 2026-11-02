@@ -38,6 +38,7 @@ _SECTIONS = {
         "properties": {
             "title": {"type": "string", "description": "섹션 제목(예: 표본 정의)"},
             "code": {"type": "string", "description": "Stata 코드(섹션 표지·_nmlog 로그 명령 제외)"},
+            "request": {"type": "string", "description": "연구자가 채팅창에 입력한 이 분석의 요청 원문 — 요약·번역·다듬기 없이 그대로. 도구가 PC 시각(일자 시각)을 붙여 섹션 첫머리에 실행되지 않는 주석으로 기록(수정 때는 이전 요청 아래에 쌓임)"},
             "kind": {"type": "string", "enum": ["analysis", "report"],
                      "description": "analysis(기본)=연구자가 확인할 분석: 추정 명령은 quietly 없이 실행해 Stata 결과표가 "
                                     "로그에 남게 함 / report=표·그림용 보조 계산(행렬·스칼라·반복, 새 추정 없이 "
@@ -112,6 +113,7 @@ TOOLS: tuple[ToolSpec, ...] = (
             "kind": {"type": "string", "enum": ["analysis", "report"],
                      "description": "analysis=분석(연구자 확인 대상) / report=보고용 계산(확인 생략 가능). "
                                     "add 기본 analysis, replace는 생략 시 기존 구분 유지"},
+            "request": {"type": "string", "description": "연구자가 채팅창에 입력한 이 분석의 요청 원문 — 요약·번역·다듬기 없이 그대로. 도구가 PC 시각(일자 시각)을 붙여 섹션 첫머리에 실행되지 않는 주석으로 기록(수정 때는 이전 요청 아래에 쌓임)"},
         },
         ("filename", "action"),
     ),

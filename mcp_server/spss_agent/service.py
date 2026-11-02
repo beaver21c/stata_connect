@@ -27,6 +27,8 @@ from .discovery import SpssInstall, discover
 from .guard.output_filter import filter_output
 from .guard.policy import SpssGuard, SpssGuardContext
 from .project import init_project
+from stata_agent.request_note import compose as compose_request
+
 from .readability import decorate_code, is_report, readability_notes, section_kind, section_title
 from .syntaxfile import (
     ENCODING,
@@ -47,6 +49,12 @@ AGENT_DIR = ".spss-agent"
 # FORMAT=DOC는 28.0.1 전까지 Word 97-2003(.doc) 형식으로 저장 [2차 확인] → 27 이하에서 .docx 요청은 .doc로 저장.
 _EXPORT_FORMATS = {".docx": "DOC", ".doc": "DOC", ".xlsx": "XLSX", ".xls": "XLS", ".html": "HTML", ".pdf": "PDF"}
 DOCX_FROM_VERSION = 28
+
+
+def _section_body(old_body: list[str], code: str | None, request: str | None, kind: str) -> str:
+    """섹션 본문 = 연구자 요청 기록(이전 + 새, §21) + 분석·보고용 안내(§20) + 문법."""
+    req_lines, rest = compose_request(old_body, code or "", request, "spss")
+    return "\n".join([*req_lines, decorate_code(rest, kind)])
 
 
 class SpssAgentService:
@@ -220,11 +228,12 @@ class SpssAgentService:
             if path.exists() and not overwrite:
                 return ToolResult(f"이미 있는 파일: {filename} → spss_patch_syntax 사용(또는 overwrite=true)", True)
             kinds = [s.get("kind") if s.get("kind") in ("analysis", "report") else "analysis" for s in sections or []]
-            pairs = [(section_title(str(s.get("title", "")), k), decorate_code(str(s.get("code", "")), k))
+            pairs = [(section_title(str(s.get("title", "")), k), _section_body([], s.get("code"), s.get("request"), k))
                      for s, k in zip(sections or [], kinds)]
             if not pairs:
                 return ToolResult("sections가 비어 있음", True)
             content = new_syntax(filename, pairs, author or "AI")
+            no_request = [f"S{i:02d}" for i, s in enumerate(sections or [], start=1) if not str(s.get("request") or "").strip()]
             read_notes = [f"S{i:02d} {t}: {n}" for i, ((t, c), k) in enumerate(zip(pairs, kinds), start=1)
                           for n in readability_notes(c, k)]
         except (SyntaxFileError, ServiceError) as e:
@@ -243,12 +252,16 @@ class SpssAgentService:
         if read_notes:
             lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
             lines += [f"- {n}" for n in read_notes]
+        if no_request:
+            lines.append(f"요청 원문 미기록: {', '.join(no_request)} → 연구자가 채팅창에 입력한 요청을 request로 그대로 넘길 것"
+                         "(섹션 첫머리에 일자·시각과 함께 주석으로 기록됨)")
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
         return ToolResult("\n".join(lines))
 
     def patch_syntax(self, filename: str, action: str, section_id: str | None = None, title: str | None = None,
-                     code: str | None = None, after: str | None = None, kind: str | None = None) -> ToolResult:
+                     code: str | None = None, after: str | None = None, kind: str | None = None,
+                     request: str | None = None) -> ToolResult:
         root = self._require_project()
         try:
             path = self._project_file(filename)
@@ -260,15 +273,17 @@ class SpssAgentService:
             kind = kind if kind in ("analysis", "report") else None
             if action == "add":
                 kind = kind or "analysis"
-                sec = doc.add(section_title(title or "추가 섹션", kind), decorate_code(code or "", kind),
+                sec = doc.add(section_title(title or "추가 섹션", kind), _section_body([], code, request, kind),
                               after=after, section_id=section_id)
             elif action in ("replace", "delete"):
                 if not section_id:
                     return ToolResult(f"{action}에는 section_id 필요", True)
                 if action == "replace":
-                    old_title = doc.get(section_id).title
+                    old = doc.get(section_id)
+                    old_title = old.title
                     kind = kind or section_kind(old_title)
-                    sec = doc.replace(section_id, decorate_code(code or "", kind), section_title(title or old_title, kind))
+                    sec = doc.replace(section_id, _section_body(old.body, code, request, kind),
+                                      section_title(title or old_title, kind))
                 else:
                     sec = doc.delete(section_id)
             else:
@@ -290,6 +305,8 @@ class SpssAgentService:
             if notes:
                 lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
                 lines += [f"- {n}" for n in notes]
+            if not str(request or "").strip():
+                lines.append("요청 원문 미기록 → 연구자가 채팅창에 입력한 요청을 request로 그대로 넘길 것")
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
         return ToolResult("\n".join(lines))

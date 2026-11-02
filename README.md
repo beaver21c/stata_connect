@@ -7,7 +7,7 @@
 - 설계서: [`docs/design/stata_agent_design.html`](docs/design/stata_agent_design.html)
 - 구현 현황·검증 지위·실기 검증 체크리스트: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
 
-## 현재 상태 (v0.2.4, 개발 단계)
+## 현재 상태 (v0.2.5, 개발 단계)
 
 | 구분 | 상태 |
 |---|---|
@@ -69,8 +69,8 @@ stata-agent setup --dry-run            # 설치 도우미 점검 실행
 # 배포 파일(Windows): 단일 exe
 python -m pip install pyinstaller==6.22.3
 python packaging/build.py                    # stata·spss 두 제품
-python packaging/smoke_test.py dist/stata-agent-0.2.4.exe --product stata
-python packaging/smoke_test.py dist/spss-agent-0.2.4.exe --product spss
+python packaging/smoke_test.py dist/stata-agent-0.2.5.exe --product stata
+python packaging/smoke_test.py dist/spss-agent-0.2.5.exe --product spss
 
 # SPSS
 spss-agent doctor                      # SPSS 설치·내장 Python 탐지

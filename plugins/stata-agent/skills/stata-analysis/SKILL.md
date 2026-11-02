@@ -43,6 +43,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
    - **연구자가 쓰던 do-file로 이어 작업**: 그 파일을 프로젝트 폴더에 두게 한 뒤 `stata_import_dofile(preview=true)`로 바뀔 내용(인코딩 변환·섹션 나눔·주석 처리할 줄)을 먼저 보여 주고 동의를 받아 `stata_import_dofile` 실행 → `stata_run_dofile`로 전체를 한 번 실행해 자료 상태 복원 → 새 분석은 `stata_patch_dofile(action="add")`로 이어 붙임. 주석 처리된 `list`·`browse` 줄은 연구자가 Stata 창에서 직접 실행하도록 안내.
 3. **자료 구조**: `stata_schema`만 사용(행 열람 금지).
 4. **do-file 작성**: `stata_write_dofile`로 섹션 단위 작성(파일명 `NN_영문.do`, 예: `04_regress.do`). 추정결과는 `estimates store m1`처럼 이름을 붙여 저장.
+   - **연구자 요청 원문 기록**: 섹션을 만들거나 고칠 때마다 연구자가 채팅창에 입력한 요청을 `request`로 그대로 넘김(요약·번역·다듬기 금지, 여러 메시지면 관련 메시지를 이어서). 도구가 PC 시각을 붙여 섹션 첫머리에 실행되지 않는 주석으로 남기고, 고칠 때는 이전 요청 아래에 쌓음. AI가 먼저 제안해 연구자가 동의한 섹션이면 `AI 제안: (제안 요지) / 연구자 답: (동의 원문)` 형식.
    - **분석과 보고용 계산을 섹션으로 나눔**(아래 §6 "분석·보고용 구분"): 연구자가 요청한 분석은 `kind="analysis"` 섹션에서 `quietly` 없이 실행해 Stata 결과표가 그대로 보이게 하고, 표 작성용 행렬·반복 계산은 `kind="report"` 섹션(표지에 `[보고용]`)에 따로 둠. 도구가 돌려주는 "가독성 참고"는 고친 뒤 진행.
 5. **승인·실행**: 실행할 섹션과 이유를 알리고 `stata_run_section`.
 6. **검증**: 로그를 기법별 점검표(references/)로 확인 → 위배 시 원인·대안 제시.
@@ -80,6 +81,9 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 - 예: "price를 weight → length → turn 순으로 단계별 회귀"
 ```stata
 *== [S02] 단계별 회귀 ==*
+/* ── 연구자 요청 (2026-11-02 23:41) ──
+price를 weight, length, turn 순서로 단계별 회귀해줘
+*/
 * ▶ 분석 — 연구자 확인 대상: 아래 명령의 Stata 출력이 결과의 근거
 regress price weight
 estimates store r1
