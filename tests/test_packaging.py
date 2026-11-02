@@ -221,7 +221,7 @@ def test_doctor_hides_registrant(monkeypatch, capsys):
         with pytest.raises(SystemExit):
             cli.main(argv)
         out = capsys.readouterr().out
-        assert "Secret" not in out and "401706" not in out and "StataSE-64.exe" in out
+        assert "Secret" not in out and "401706" not in out and "StataSE-64.exe" in out and "pystata" in out
 
 
 def test_plugin_setup_command_flags_exist():

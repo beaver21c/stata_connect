@@ -31,6 +31,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 | stata_read_log | 로그 다시 읽기(필터 적용) | 자동 |
 | stata_get_results | e()·r()·_b[]·스칼라 조회 | 자동 |
 | stata_export | etable·putdocx 표 산출 | 필요 |
+| stata_view_graph | 그래프 그림 확인(파일 또는 현재 그래프 창 → 이미지). 관측치별 점·값 글자 그림은 연구자 동의 후 | 필요 |
 | stata_reproduce | 00_master.do 배치 재실행·수치 대조 | 필요 |
 | stata_install_package | ssc/net 설치 | 필요 |
 | stata_usage_summary | AI 사용 기록·공개문 초안 | 자동 |
@@ -47,6 +48,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 7. **수정·재실행**: `stata_patch_dofile(action="add")`로 수정 섹션 추가(원 결과 섹션 삭제 금지) → 비교.
 8. **해석**: 모든 수치를 로그 또는 `stata_get_results`에서 인용하고 출처를 표기(예: `04_regress.do S02`).
 9. **산출**: `stata_export`로 표(Word 등), 연구방법·연구결과 초안 작성.
+   - **그래프**: 섹션 코드에서 그린 뒤 `graph export "output/figures/이름.png", width(1400) replace`로 저장 → `stata_view_graph(filename="output/figures/이름.png")`로 그림을 보고 축 제목·단위·범례·라벨 겹침을 점검해 고침. 저장하지 않은 그림은 `stata_view_graph()`(현재 그래프 창). 그림에서 읽은 값은 해석에 쓰지 않음.
 10. **재현 확인**: `stata_reproduce` → "재현 일치 / 불일치 n건" 1줄 보고.
 11. **공개문**: `stata_usage_summary` → 초안을 연구자가 검토하도록 제시.
 
@@ -60,6 +62,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 - **차단**(list·browse·display var[1]·shell·외부 반출 등): 같은 목적을 요약통계로 바꿈(예: `list` 대신 `summarize`, `tabstat`, `count if`). 꼭 필요하면 연구자가 Stata 창에서 직접 실행하도록 안내.
 - **승인 필요**(cd·동적 명령·data 외 저장 등): 사유를 설명하고 동의를 받은 뒤 `acknowledge_risks=true`.
 - **식별자 성격 변수 빈도표**(고유값 비율 높음): 범주화하거나 빈도표 대신 요약통계 사용.
+- **그림 보류**(`stata_view_graph`): 산점도·선 그래프·`graph matrix`처럼 관측치마다 점이 찍히는 그림, `mlabel()`로 값을 글자로 찍은 그림, 만든 명령을 확인할 수 없는 그림은 개별 값이 그림으로 전송됨 → 연구자에게 설명하고 동의받은 뒤 `acknowledge_risks=true`. 대안: `collapse` 후 그리기, `mlabel()` 빼기, `binscatter`·`lfit`·`kdensity` 같은 집계 그림. `graph export` 경로는 프로젝트 안 `output/figures`(밖·`data/`는 차단).
 - **출력 필터 차단**: 결과 일부가 가려짐 → 원 로그는 연구자 PC에만 있음. 연구자에게 Stata 창에서 확인을 요청.
 
 ## 6. do-file 규약
@@ -74,6 +77,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 
 ## 8. 자주 생기는 상황
 - **배치 모드**(`stata_status`의 backend가 batch_cli): 호출 간 메모리 미유지 → 각 섹션에 자료 불러오기 포함, 편집기 연동·저장결과 조회 불가.
+- **pystata 모드**(backend가 pystata, 연구자가 따로 지정한 보조 방식): 화면 없는 Stata라 Do-file Editor 연동·연구자 조작 감지 없음. 메모리·저장결과는 유지됨. 연구자에게 결과를 보여 줄 때는 로그·표·그림 파일(`output/`)을 안내.
 - **실행 시간 초과**: COM 세션은 명령당 180초 제한(상류 고정값) → 장시간 작업은 `stata_reproduce`(배치)로 실행하거나 섹션을 나눔.
 - **Stata 창이 닫힘·연결 끊김**: 새 빈 세션으로 재연결됨 → 자료 불러오기부터 다시 실행.
 - **연결 점검 요청**: `stata_selftest` 결과표를 보여 주고, 실패 항목의 조치를 안내. 오류 보고에는 점검 보고서 파일만 첨부하도록 안내.

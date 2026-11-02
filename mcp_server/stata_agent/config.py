@@ -3,7 +3,8 @@
 | 변수 | 기본값 | 의미 |
 |---|---|---|
 | STATA_AGENT_STATA_EXE | (탐지) | 사용할 Stata 실행파일 고정 |
-| STATA_AGENT_BACKEND | auto | auto / com / batch |
+| STATA_AGENT_BACKEND | auto | auto / com / batch / pystata(보조, 지정할 때만) |
+| STATA_AGENT_PYTHON | (탐지) | pystata 백엔드가 쓸 Python 실행파일 |
 | STATA_AGENT_PROJECT | (없음) | 기본 프로젝트 폴더 |
 | STATA_AGENT_MAX_OUTPUT_CHARS | 20000 | AI 반환 로그 최대 글자 수 |
 | STATA_AGENT_MASK_SMALL_CELLS | 0 | 빈도표 소표본 셀 마스킹 기준(0=끔, 예: 5) |
@@ -63,6 +64,7 @@ class Settings:
     stata_version: int | None
     drift_check: str = "full"
     drift_max_cells: int = 50_000_000
+    python_exe: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -80,4 +82,5 @@ class Settings:
             stata_version=int(ver) if ver and ver.isdigit() else None,
             drift_check=(_env("STATA_AGENT_DRIFT_CHECK") or "full").lower(),
             drift_max_cells=_int("STATA_AGENT_DRIFT_MAX_CELLS", 50_000_000),
+            python_exe=_env("STATA_AGENT_PYTHON"),
         )

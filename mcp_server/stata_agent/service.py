@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import re
 import shutil
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +39,17 @@ from .dofile import (
     validate_filename,
 )
 from .editor_sync import EditorSync
+from .graphs import (
+    AGGREGATE,
+    GRAPH_FILE_SUFFIXES,
+    IMAGE_TYPES,
+    LABELED,
+    GraphInfo,
+    GraphScan,
+    find_in_project,
+    png_size,
+    scan_code,
+)
 from .guard.command_policy import ACTION_LABEL, Action, CommandGuard, GuardContext, GuardResult, default_file_reader
 from .guard.output_filter import FilterConfig, extract_markers, filter_output
 from .guard.stata_lexer import iter_statements, parse_command, abbrev_match
@@ -53,6 +65,12 @@ from .session_log import SessionLog, disclosure_draft
 class ToolResult:
     text: str
     is_error: bool = False
+    images: list[tuple[bytes, str]] = field(default_factory=list)  # (바이트, MIME) — stata_view_graph 전용
+
+
+# 그래프 보기: 반환 이미지 최대 크기(base64 변환 후 약 4.7MB — Claude API 10MB·Amazon Bedrock 5MB 한도 안쪽, §15)
+MAX_IMAGE_BYTES = 3_500_000
+VIEW_EXPORT_WIDTH = 1400
 
 
 class ServiceError(Exception):
@@ -126,7 +144,8 @@ class StataAgentService:
         self._discovery = discovery_report
         if backend is None:
             exe = self.settings.stata_exe or self._quick_exe()
-            backend, self.backend_reason = select_backend(self.settings.backend, exe)
+            backend, self.backend_reason = select_backend(self.settings.backend, exe, self.settings.python_exe,
+                                                          self.settings.batch_timeout)
         else:
             self.backend_reason = "외부 지정"
         self.backend = backend
@@ -140,6 +159,7 @@ class StataAgentService:
         self.data_state: DataState | None = None
         self.cmdlog: CmdlogReader | None = None
         self.files = FileWatch(DoFile.parse)
+        self.graphs = GraphScan()
         self.version_line = f"version {self.settings.stata_version}" if self.settings.stata_version else None
         self.log: SessionLog | None = None
         self.last_log_path: Path | None = None
@@ -234,7 +254,8 @@ class StataAgentService:
 
     # ── 연구자 조작 감지(창 연동 세션) ──
     def _drift_enabled(self) -> bool:
-        return self.backend.persistent_session and self.settings.drift_check != "off"
+        return (self.backend.persistent_session and getattr(self.backend, "human_window", False)
+                and self.settings.drift_check != "off")
 
     def _mark_cmdlog(self) -> None:
         if self.cmdlog is not None:
@@ -251,6 +272,8 @@ class StataAgentService:
         if not self._drift_enabled() or self.project_root is None:
             return []
         manual = self.cmdlog.read_new() if self.cmdlog is not None else []
+        if manual:
+            scan_code("\n".join(manual), "researcher", self.graphs)  # 창에서 그린 그래프도 등급 판정
         new = self._capture_state()
         diffs = diff_states(self.data_state, new) if (self.data_state and new) else []
         if new is not None:
@@ -274,11 +297,40 @@ class StataAgentService:
         return ("⚠️ 연구자 조작 감지(마지막 AI 실행 이후)\n" + "\n".join(f"- {n}" for n in notes)
                 + "\n→ 연구자에게 확인하고, 남길 명령은 동의를 받아 do-file 섹션('연구자 수동 작업')으로 추가\n\n")
 
+    # ── 그래프(§15) ──
+    def _graph_note(self, code: str) -> str:
+        """실행한 코드의 그래프를 등급과 함께 기록하고, AI가 볼 수 있는 방법을 한 줄로 안내."""
+        part = scan_code(code, "ai")
+        if not part.drawn and not part.exports:
+            return ""
+        scan_code(code, "ai", self.graphs)
+        items = []
+        for target in part.exports[:8]:
+            info = part.files.get(Path(target.replace("\\", "/")).name.lower())
+            if info is not None:
+                items.append(f"{target}({info.label()}{' → 승인 필요' if info.needs_approval else ''})")
+        if part.current is not None and self.backend.persistent_session:
+            cur = part.current
+            items.append(f"현재 그래프 창({cur.label()}{' → 승인 필요' if cur.needs_approval else ''})")
+        if not items:
+            return ""
+        return "그래프: " + ", ".join(items) + " → stata_view_graph로 그림 확인 가능"
+
+    def _graph_hint(self, suffix: str) -> str:
+        if suffix == ".gph":
+            return ("Stata 그래프 파일(.gph)은 그림으로 바로 보낼 수 없음 → 섹션 코드에 "
+                    '`graph use "파일.gph"` 후 `graph export "output/figures/이름.png", width(1400) replace` 추가')
+        return (f"{suffix} 형식은 AI가 읽지 못함(PNG·JPG·GIF만) → "
+                '`graph export "output/figures/이름.png", width(1400) replace`로 PNG 사본 저장')
+
     # ── 고유값 점검(식별자 성격 변수) ──
     def _identifier_check(self, guard: GuardResult) -> list[dict]:
-        if not guard.identifier_vars or not self.backend.persistent_session:
+        return self._unique_flags(guard.identifier_vars)
+
+    def _unique_flags(self, variables: list[str]) -> list[dict]:
+        if not variables or not self.backend.persistent_session:
             return []
-        outcome = self._run_internal(uniqueness_probe_code(guard.identifier_vars))
+        outcome = self._run_internal(uniqueness_probe_code(variables))
         flagged = []
         for fields in extract_markers(outcome.log_text, "SAUNIQ"):
             if len(fields) < 3:
@@ -373,6 +425,7 @@ class StataAgentService:
         outcome: RunOutcome = runner()
         if self.project_root is not None and outcome.log_text:
             self._save_last_log(outcome)
+        graph_note = self._graph_note(code_for_guard)
         text, events = self._filtered(outcome)
         if self._update_variables_from_code(code_for_guard) and outcome.ok:
             self._refresh_variables()
@@ -390,6 +443,8 @@ class StataAgentService:
             head.append(guard.summary())
         if events:
             head.append(f"출력 필터 차단 {len(events)}건: " + "; ".join(e.reason for e in events))
+        if graph_note:
+            head.append(graph_note)
         return ToolResult("\n".join(head) + "\n\n=== Stata 출력(필터 적용) ===\n" + (text or "(출력 없음)"),
                           not outcome.ok)
 
@@ -435,6 +490,7 @@ class StataAgentService:
         self.variables = None
         self.log = SessionLog(root)
         self.cmdlog, self.data_state = None, None
+        self.graphs = GraphScan()
         if self._drift_enabled():
             cmd_path = root / ".stata-agent" / "cmdlog.txt"
             cmd_path.parent.mkdir(parents=True, exist_ok=True)
@@ -654,8 +710,13 @@ class StataAgentService:
                     notes.append(str(e))
         lines = []
         if not self._drift_enabled():
-            lines.append("자료 상태 비교: " + ("배치 모드라 해당 없음" if not self.backend.persistent_session
-                                          else "꺼짐(STATA_AGENT_DRIFT_CHECK=off)"))
+            if not self.backend.persistent_session:
+                why = "배치 모드라 해당 없음"
+            elif not getattr(self.backend, "human_window", False):
+                why = "화면 없는 세션(pystata)이라 연구자가 조작할 수 없음 → 해당 없음"
+            else:
+                why = "꺼짐(STATA_AGENT_DRIFT_CHECK=off)"
+            lines.append("자료 상태 비교: " + why)
         elif self.cmdlog is not None and not self.cmdlog.enabled:
             lines.append("참고: Stata 명령 기록(cmdlog)을 켜지 못함(이미 다른 cmdlog 사용 중 등) → 창에서 친 명령은 보고 불가")
         if notes:
@@ -799,6 +860,86 @@ class StataAgentService:
             exists = (root / target).is_file()
             result.text = (f"{'✅ 파일 생성' if exists else '⚠️ 파일 미확인'}: {target}\n") + result.text
         return result
+
+    def view_graph(self, filename: str | None = None, graph_name: str | None = None,
+                   acknowledge_risks: bool = False) -> ToolResult:
+        """그래프 그림을 이미지로 반환(§15). 집계 그래프는 바로, 관측치별 점·값 글자·출처 미확인은 연구자 동의 후."""
+        root = self._require_project()
+        notes: list[str] = []
+        export_code = None
+        if filename:
+            try:
+                path = self._project_file(filename)
+            except ServiceError as e:
+                return ToolResult(str(e), True)
+            rel = path.relative_to(root.resolve())
+            if rel.parts and rel.parts[0].lower() == "data":
+                return ToolResult("원자료 폴더(data/) 안 파일은 보내지 않음 → 그림은 output/figures에 저장", True)
+            suffix = path.suffix.lower()
+            if suffix not in IMAGE_TYPES:
+                if suffix in GRAPH_FILE_SUFFIXES:
+                    return ToolResult(self._graph_hint(suffix), True)
+                return ToolResult(f"그림 파일이 아님: {filename} (PNG·JPG·GIF)", True)
+            if not path.is_file():
+                return ToolResult(f"파일 없음: {filename} → 섹션에 graph export로 저장했는지 확인", True)
+            info = self.graphs.files.get(path.name.lower()) or find_in_project(root, path.name)
+            if info is None:
+                info = GraphInfo("unknown", ["이 그림을 내보낸 명령을 이번 세션 실행·프로젝트 do-file에서 찾지 못함"])
+            label = rel.as_posix()
+        else:
+            if not self.backend.persistent_session:
+                return ToolResult("배치 모드: 메모리 그래프 없음 → 섹션 코드에 "
+                                  '`graph export "output/figures/이름.png", width(1400) replace`를 넣어 실행한 뒤 '
+                                  "filename으로 지정", True)
+            name = (graph_name or "").strip()
+            if name and not re.fullmatch(r"[A-Za-z_]\w{0,31}", name):
+                return ToolResult("graph_name 형식 오류(그래프 이름, 예: Graph·fig1)", True)
+            notes = self._precheck()  # 창에서 그린 그래프도 등급 판정에 반영
+            info = self.graphs.named.get(name.lower()) if name else self.graphs.current
+            if info is None:
+                info = GraphInfo("unknown", ["현재 그래프를 만든 명령을 이번 세션 실행·창 입력 기록에서 찾지 못함"])
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            path = root / ".stata-agent" / "graphs" / f"view_{name or 'current'}_{stamp}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            export_code = (f'graph export "{stata_path(path)}", {f"name({name}) " if name else ""}'
+                           f"width({VIEW_EXPORT_WIDTH}) replace")
+            label = f"그래프 창 {name or '(현재)'}"
+        if info.kind == AGGREGATE and info.group_vars and not acknowledge_risks:
+            flagged = self._unique_flags(info.group_vars)
+            if flagged:
+                desc = ", ".join(f"{f['variable']}(고유값 {f['ratio']:.0%})" for f in flagged)
+                info = GraphInfo(LABELED, [f"집단 변수 {desc}가 식별자 성격 → 집단마다 개별 값·이름이 드러날 수 있음"],
+                                 info.command, info.group_vars, info.source)
+        if info.needs_approval and not acknowledge_risks:
+            self._record("stata_view_graph", status="needs_approval", graph_kind=info.kind,
+                         file=filename or None)
+            text = (f"그림 보류 — 연구자 확인 필요: {label}\n- 판정: {info.label()} — " + "; ".join(info.reasons)
+                    + (f"\n- 근거 명령: `{info.command}`" if info.command else "")
+                    + "\n→ 이 그림을 AI에게 보내면 개별 관측치 값(점 위치·글자)이 함께 전송됨. 연구자에게 설명하고 "
+                    "동의를 받은 경우에만 acknowledge_risks=true로 다시 요청.\n"
+                    "→ 대안: collapse 후 그리기, mlabel() 빼기, binscatter·lfit·kdensity 등 집계 그림")
+            return ToolResult(self._drift_text(notes) + text, True)
+        if export_code is not None:
+            outcome = self._run_internal(export_code)
+            if not outcome.ok or not path.is_file():
+                text, _ = self._filtered(outcome)
+                self._record("stata_view_graph", status="error", return_code=outcome.return_code)
+                return ToolResult("그래프 내보내기 실패(그래프 창이 없거나 이름이 다름 → graph dir로 이름 확인)\n"
+                                  + "\n".join(self._strip_markers(text).splitlines()[-15:]), True)
+        data = path.read_bytes()
+        if len(data) > MAX_IMAGE_BYTES:
+            self._record("stata_view_graph", status="error", graph_kind=info.kind, file=filename or None)
+            return ToolResult(f"그림이 너무 큼({len(data) // 1024}KB, 한도 {MAX_IMAGE_BYTES // 1024}KB) → "
+                              "graph export에 width(1400) 등 작은 크기로 다시 저장", True)
+        size = png_size(data)
+        self._record("stata_view_graph", status="ok", graph_kind=info.kind, file=filename or None,
+                     acknowledged_risks=(acknowledge_risks and info.needs_approval) or None)
+        detail = info.label() + (", 연구자 승인" if info.needs_approval else "") + (f", {size[0]}×{size[1]}px" if size else "")
+        saved = "" if filename else f"\n저장 위치: {path.relative_to(root).as_posix()} (그림이 보이지 않으면 연구자가 이 파일을 열어 확인)"
+        text = (f"🖼️ 그래프: {label} ({detail}){saved}\n"
+                "확인 요점: 축 제목·단위·범례·라벨 겹침·눈금. 수치는 그림에서 읽지 말고 로그·stata_get_results로 인용")
+        mime = IMAGE_TYPES.get(path.suffix.lower(), "image/png")
+        return ToolResult(self._drift_text(notes) + text, images=[(data, mime)])
 
     def reproduce(self, master: str | None = None) -> ToolResult:
         root = self._require_project()

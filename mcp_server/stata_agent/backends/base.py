@@ -30,6 +30,7 @@ def stata_path(path: Path | str) -> str:
 class Backend(ABC):
     name: str = "base"
     persistent_session: bool = False  # 호출 간 메모리(자료·추정결과) 유지 여부
+    human_window: bool = False        # 연구자가 같은 Stata 창을 조작할 수 있는지(연구자 조작 감지 대상, §14)
 
     @abstractmethod
     def available(self) -> tuple[bool, str]:

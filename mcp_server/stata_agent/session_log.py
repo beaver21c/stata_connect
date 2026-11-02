@@ -18,6 +18,8 @@ _ALLOWED_KEYS = {
     "backup", "action", "package", "estimates", "export_file", "client",
     # 기존 파일 가져오기·연구자 조작 감지(개수·인코딩 이름만, 코드·값 없음)
     "encoding", "sections", "commented", "manual", "drift",
+    # 그래프 보기(등급만, 그림 내용 없음)
+    "graph_kind",
 }
 
 

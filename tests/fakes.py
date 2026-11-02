@@ -30,6 +30,10 @@ SUMMARIZE_PRICE = """\
 """
 
 
+FAKE_PNG = (b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (1400).to_bytes(4, "big") + (1000).to_bytes(4, "big")
+            + b"\x08\x02\x00\x00\x00" + b"\x00" * 4)
+
+
 def echo(code: str) -> str:
     return "\n".join(f". {ln}" for ln in code.splitlines() if ln.strip())
 
@@ -76,6 +80,13 @@ def default_responder(code: str, state: dict) -> str:
         p = Path(state["root"]) / m.group(1)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(b"PK")
+    for m in re.finditer(r'graph export "([^"]+)"', code):
+        # 그래프 내보내기 흉내: 1×1 PNG 머리(IHDR 크기 1400×1000)만 쓴 합성 파일(실제 그림 아님)
+        p = Path(m.group(1))
+        if not p.is_absolute() and state.get("root"):
+            p = Path(state["root"]) / p
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(FAKE_PNG)
     for name in re.findall(r'display "SARES\|([^|]+)\|"', code):
         value = {"e(r2)": "0.2934", "e(N)": "74", "_b[weight]": "1.746559"}.get(name)
         if value is not None:
@@ -101,6 +112,7 @@ class FakeBackend(Backend):
 
     def __init__(self, persistent: bool = True, responder=default_responder):
         self.persistent_session = persistent
+        self.human_window = persistent  # 창 연동 흉내(연구자 조작 감지 대상)
         self.responder = responder
         self.calls: list[tuple] = []
         self.state: dict = {}

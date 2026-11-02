@@ -19,7 +19,8 @@ DESIGN_TOOLS = {  # 설계서 §7 표
 def test_tool_list_covers_design():
     names = {t.name for t in srv.list_tool_objects()}
     assert DESIGN_TOOLS <= names
-    assert names - DESIGN_TOOLS == {"stata_usage_summary", "stata_import_dofile", "stata_check_changes"}
+    assert names - DESIGN_TOOLS == {"stata_usage_summary", "stata_import_dofile", "stata_check_changes",
+                                    "stata_view_graph"}
 
 
 def test_permission_classes_match_design():
@@ -55,5 +56,14 @@ def test_in_memory_roundtrip(settings, project, monkeypatch):
             assert "관측치 74개" in r.content[0].text
             r = await client.call_tool("stata_run_section", {"filename": "01_x.do", "section_id": "S01"})
             assert r.content[0].text.startswith("[오류]")
+            # 그래프 보기: 텍스트 + PNG 이미지 블록(base64)
+            svc.write_dofile("02_fig.do", [{"title": "그림", "code": "histogram price\n"
+                                            'graph export "output/figures/h.png", width(1400) replace'}])
+            svc.run_section("02_fig.do", "S01")
+            r = await client.call_tool("stata_view_graph", {"filename": "output/figures/h.png"})
+            assert r.content[0].type == "text" and "집계" in r.content[0].text
+            assert r.content[1].type == "image" and r.content[1].mimeType == "image/png"
+            import base64
+            assert base64.b64decode(r.content[1].data).startswith(b"\x89PNG")
 
     anyio.run(run)
