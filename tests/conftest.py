@@ -25,3 +25,16 @@ def settings(tmp_path, monkeypatch):
     from stata_agent.config import Settings
 
     return Settings.from_env()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_user_settings(tmp_path, monkeypatch):
+    """테스트가 실제 사용자 설정(Claude 앱·Desktop Commander)을 건드리지 않게 위치를 임시 폴더로 바꿈.
+    (2026-11-02: 설치 도우미 테스트가 개발 환경의 Desktop Commander 설정을 고친 사고 재발 방지)"""
+    import stata_agent.dc_guard as dc
+
+    home = tmp_path / "_user"
+    monkeypatch.setattr(dc, "dc_config_path", lambda: home / ".claude-server-commander" / "config.json")
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+

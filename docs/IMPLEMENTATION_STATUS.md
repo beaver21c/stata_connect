@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14, 그래프 보기는 §15, pystata 보조 백엔드는 §16
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14, 그래프 보기는 §15, pystata 보조 백엔드는 §16, Claude 앱 직접 등록·Desktop Commander 대응은 §17
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -35,8 +35,8 @@
 | §11 클라이언트 설정 | `client_config.py`, `installer/configure_clients.py` | 구현·테스트. Claude Code 등록 실제 CLI로 확인 [1차 확인] |
 | §5 doctor·COM 등록 | `installer/doctor.ps1`, `installer/register_com.ps1` | 작성 / **실기 미검증(PowerShell 미실행)** |
 | §13.4 자동 테스트 | `tests/`, `.github/workflows/ci.yml` | Ubuntu·Windows × Python 3.10·3.13 |
-| §0 배포(exe·서명·mcpb·통합 설치) | `packaging/`, `setup_wizard.py`, `.github/workflows/package-windows.yml` | **시험판**: 단일 exe·`.mcpb`·설치 도우미 구현, CI Windows 빌드·점검(§11). 코드 서명 미착수, **실기 미검증** |
-| §0.6 안내 사이트 | `site/index.html`, `site/build.py`, `.github/workflows/pages.yml` | 구현: 설치 방법 비교(A 클릭 설치·B Claude Code·Codex) + 시험판 exe·`.mcpb`·스킬 ZIP(확인값) + `latest.json` |
+| §0 배포(exe·서명·mcpb·통합 설치) | `packaging/`, `setup_wizard.py`, `.github/workflows/package-windows.yml` | **시험판**: 단일 exe·설치 도우미 구현, CI Windows 빌드·점검(§11). `.mcpb`는 2026-11-02 폐기(§11.7). 코드 서명 미착수, **실기 미검증** |
+| §0.6 안내 사이트 | `site/index.html`, `site/build.py`, `.github/workflows/pages.yml` | 구현: 설치 방법 비교(A 클릭 설치·B Claude Code·Codex) + 시험판 exe·스킬 ZIP(확인값) + `latest.json` |
 | §0.6 Releases | — | GitHub Releases 대신 Pages `downloads/`로 배포(세션 권한상 태그·Release 생성 불가, 같은 빌드 산출물 사용) |
 
 ## 3. 이번 작업에서 확인한 사실
@@ -63,7 +63,7 @@
 - 권한 규칙 `mcp__stata__도구명`, `permissions.ask` 존재, `Read(/data/**)`는 프로젝트 루트 기준 [2차 확인: 공식 문서, 하위 조사]
 - Claude 앱 스킬 업로드: `name`(소문자·숫자·하이픈, 64자, 폴더명 일치)·`description`(1,024자) 필수, 허용 필드 제한, ZIP 최상위에 스킬 폴더 [2차 확인: 공식 문서, 하위 조사]
 - Claude Desktop 설정 파일 Windows 경로(`%APPDATA%\Claude\claude_desktop_config.json`): 공식 문서에서 확인 안 됨 [미확인] → 폴더가 있을 때만 병합
-- MCPB: `binary` 서버 유형 존재, `manifest_version`은 사양 내 0.3/0.4 혼재 [2차 확인] → Phase 5에서 재확인
+- MCPB: `binary` 서버 유형 존재, `manifest_version`은 사양 내 0.3/0.4 혼재 [2차 확인] → Phase 5에서 재확인(2026-11-02 `.mcpb` 폐기, §11.7)
 
 ### 3.4 Stata
 - `about` 출력 형식: 첫 줄 `Stata/MP 17.0 for Windows (64-bit x86-64)`·`StataNow/SE 19.5 ...`, 라이선스 `..., expiring 21 Jan 2024`(한 자리 일은 공백 채움)·`perpetual` [2차 확인: 공개 저장소 실제 로그]
@@ -173,7 +173,7 @@ stata-agent selftest --client "Claude Code"
 | Phase 2 | Stata 17·18·19.5 각각 doctor·selftest 통과, 만료 라이선스 감지 |
 | Phase 3 | 8개 기법 시나리오(auto·공개 패널자료) 기준값 대조, references 기준값 출처 보강 |
 | Phase 4 | Codex 앱 동일 시나리오 |
-| Phase 5 | 단일 exe·`.mcpb`·설치 도우미·플러그인 → **시험판 구현(§11)**. 남은 일: 코드 서명, §11.6 실기 검증, 검증 후 "시험판" 표기 해제 |
+| Phase 5 | 단일 exe·설치 도우미·플러그인 → **시험판 구현(§11)**, `.mcpb`는 폐기(§11.7). 남은 일: 코드 서명, §11.6 실기 검증, 검증 후 "시험판" 표기 해제 |
 | 미정 | 저장소 라이선스(공개 배포 전 결정 필요) |
 
 ## 9. 참고자료
@@ -285,6 +285,7 @@ spss-agent configure --clients claude-code --dry-run
 - 요청: Stata 실행 검증과 별개로, 처음 쓰는 사람이 사전 준비를 클릭 몇 번으로 끝내도록 패키지·설명 보완 + Claude 유료 이용자의 Claude Code 활용 방향 병행 검토
 - 결론: 두 방향 모두 제공하고 **같은 단일 실행파일**을 공유
   - 방향 A(클릭 설치, Claude 채팅): `.mcpb` 확장 더블클릭 + 플러그인 마켓플레이스로 스킬 추가 + (선택) 설치 도우미로 COM 등록
+    - 2026-11-02 변경: `.mcpb` 폐기 → 설치 도우미 하나로 Stata 확인·COM 등록·Claude 앱 설정 직접 등록(§11.7)
   - 방향 B(Claude Code에게 맡기기): 플러그인의 `/stata-agent:setup` 명령 → Claude Code가 내려받기·확인값 대조·설치 도우미 실행·분석 폴더 준비를 대신 수행
   - Codex: 설치 도우미 더블클릭(설정 병합·스킬 복사)
 
@@ -295,17 +296,17 @@ spss-agent configure --clients claude-code --dry-run
 | 인자 없는 실행 | `cli._default_argv` | 콘솔(더블클릭) → 설치 도우미, 입력 연결(MCP 클라이언트) → 서버 |
 | 설치 도우미 | `setup_wizard.py`, `stata-agent setup` | 실행파일 고정 위치 복사(`%LOCALAPPDATA%\StataAgent`) → Stata 확인 → COM 등록(UAC, 선택) → 분석 폴더 → 앱 연결. 자동 테스트 / **실기 미검증** |
 | COM 등록 | `stata-agent register-com` | PowerShell `Start-Process -Verb RunAs`로 `<Stata> /Register` / **실기 미검증** |
-| `.mcpb` 확장 | `packaging/build.py manifest()` | manifest v0.3, `binary` 서버, `user_config`(Stata 실행파일·소표본 가림 기준), 도구 목록은 `tool_specs`에서 생성. 공식 CLI `mcpb validate` 통과 [1차 확인] / Claude 앱 설치 화면 **실기 미검증** |
+| ~~`.mcpb` 확장~~ **폐기(2026-11-02, §11.7)** | (삭제) `packaging/build.py manifest()` | manifest v0.3, `binary` 서버, `user_config`(Stata 실행파일·소표본 가림 기준), 도구 목록은 `tool_specs`에서 생성. 공식 CLI `mcpb validate` 통과 [1차 확인] / Claude 앱 설치 화면 **실기 미검증** |
 | 플러그인 마켓플레이스 | `.claude-plugin/marketplace.json`, `plugins/stata-agent`, `plugins/spss-agent` | `claude plugin validate` 통과, 가짜 HOME에서 `marketplace add`·`install`·`details` 확인(Claude Code 2.1.314) [1차 확인] / claude.ai 화면 추가 **실기 미검증** |
 | Claude Code 설치 명령 | `plugins/stata-agent/commands/setup.md` | 명령줄 인자는 테스트가 파서로 검사 / Claude Code 실제 수행 **실기 미검증** |
 | 분석 폴더 `.mcp.json` | `client_config.merge_project_mcp` | `${LOCALAPPDATA}` 확장 사용(경로에 사용자명 미기록) |
 | 실행 전 검사(hook) | `hookguard.py`, `stata-agent hook-guard`, 프로젝트 `.claude/settings.json` | 셸 명령의 `data/`·원자료 확장자·Stata 직접 실행(실행파일·COM·pystata·stata_setup·sfi) 차단(종료 코드 2). 자동 테스트 / Windows Claude Code에서 **실기 미검증**. 이 문자열들을 쓰지 않는 스크립트 파일 실행은 막지 못함 |
 | 출력 인코딩 | `cli._utf8_when_piped` | 출력이 다른 프로그램으로 넘어가면 UTF-8 고정(Windows 기본 코드페이지 회피) |
 | 사용권 고지 | `THIRD_PARTY_NOTICES.txt` | 빌드 환경의 설치 정보로 자동 생성(stata-gui-mcp MIT 등) |
-| 배포 | `.github/workflows/package-windows.yml`, `pages.yml`, `site/build.py --binaries` | Pages `downloads/`에 exe·`.mcpb`·`latest.json`·SHA256SUMS |
+| 배포 | `.github/workflows/package-windows.yml`, `pages.yml`, `site/build.py --binaries` | Pages `downloads/`에 exe·`latest.json`·SHA256SUMS(`.mcpb`는 2026-11-02 제거) |
 
 ### 11.3 확인한 사실과 지위
-- MCPB [1차 확인]: manifest v0.3 필드·`user_config` 형식(`string|number|boolean|directory|file`), `${__dirname}`·`${user_config.키}` 치환, win32 재정의 예시의 `.exe` 명시(MANIFEST.md, mcpb 2.1.2 스키마). 서명 안 된 묶음은 `mcpb info`에서 "Not signed" 표시 — Claude 앱의 경고 문구는 [미확인]
+- (폐기된 `.mcpb`에 관한 기록) MCPB [1차 확인]: manifest v0.3 필드·`user_config` 형식(`string|number|boolean|directory|file`), `${__dirname}`·`${user_config.키}` 치환, win32 재정의 예시의 `.exe` 명시(MANIFEST.md, mcpb 2.1.2 스키마). 서명 안 된 묶음은 `mcpb info`에서 "Not signed" 표시 — Claude 앱의 경고 문구는 [미확인]
 - 비워 둔 `user_config` 값의 전달 형태 [미확인] → 서버가 빈 값·채워지지 않은 `${…}`를 미설정으로 처리(`config._env`)
 - 플러그인 [1차 확인]: 매니페스트 위치 `.claude-plugin/plugin.json`, 스킬 `skills/<이름>/SKILL.md`, 최상위 `bin/`이 있으면 claude.ai·Cowork 설치 불가, 로컬 MCP 서버는 채팅에서 무시됨, 플러그인 MCP 도구 이름은 `mcp__plugin_<플러그인>_<서버>__<도구>`
   - → MCP 서버를 플러그인에 넣지 않음(기존 권한 규칙 `mcp__stata__*`와 이름이 달라짐)
@@ -317,24 +318,38 @@ spss-agent configure --clients claude-code --dry-run
 ### 11.4 두 방향 비교(설명서 사이트 `#choose`와 같은 내용)
 | 항목 | A 클릭 설치(채팅) | B Claude Code |
 |---|---|---|
-| 사용자 조치 | 파일 1~2개 더블클릭 + 플러그인 추가 | 플러그인 추가 + `/stata-agent:setup` + 승인 |
+| 사용자 조치 | 설치 도우미 1개 더블클릭 + 플러그인 추가(2026-11-02 `.mcpb` 폐기 후) | 플러그인 추가 + `/stata-agent:setup` + 승인 |
 | 설치 문제 해결 | 설명서 참조 | Claude가 오류 출력 판독 |
-| 원자료 보호 | MCP 도구 경로만 존재(채팅은 PC 명령 실행 불가) → 더 엄격 [논리적 추론] | 셸 실행 가능 → 거부 규칙 + hook, 우회 가능성 잔존 |
+| 원자료 보호 | ~~MCP 도구 경로만 존재(채팅은 PC 명령 실행 불가) → 더 엄격 [논리적 추론]~~ → **정정(2026-11-02, §17)**: Claude 앱도 Desktop Commander 등 PC 명령 도구가 켜져 있으면 Stata 직접 실행·파일 열람 가능 [1차 확인: 사용자 PC 실기]. 그 도구를 끈 상태에서만 MCP 도구 경로만 남음 | 셸 실행 가능 → 거부 규칙 + hook, 우회 가능성 잔존 |
 | 요금제 | Pro 이상 권장 | Pro 이상 필수 [1차 확인] |
 
 ### 11.5 설계서 대비 변경점
 - 설계서의 "통합 설치 프로그램(StataAgentSetup.exe)" → 실행파일 하나가 설치 도우미·MCP 서버·hook 역할을 겸함(별도 설치 프로그램 없음)
 - Claude 데스크톱 앱 연결: 설정 파일 직접 병합(Windows 경로 미확인) 대신 `.mcpb` 확장(공식 설치 화면) 우선
+  - 2026-11-02 번복: 실기에서 `.mcpb`가 열리지 않아 폐기 → 설치 도우미의 설정 파일 직접 등록으로 전환(§11.7)
 - 스킬 배포: ZIP 업로드 외에 플러그인 마켓플레이스(자동 갱신) 추가. 스킬 원본 위치 `skills/` → `plugins/<플러그인>/skills/`
 
 ### 11.6 실기 검증 체크리스트(Windows)
 - [ ] 다운로드한 exe 더블클릭 → SmartScreen 문구·"추가 정보 → 실행" 경로, 한글 콘솔 출력·입력
 - [ ] 설치 도우미: `%LOCALAPPDATA%\StataAgent` 복사, COM 등록 UAC 승인·거절 각각, Codex 설정 병합 결과
-- [ ] `.mcpb` 더블클릭 → Claude 앱 설치 화면, 서명 경고 문구, `user_config` 비워 둘 때 서버 동작, 도구 19종 표시
+- [폐기] ~~`.mcpb` 더블클릭 → Claude 앱 설치 화면, 서명 경고 문구, `user_config` 비워 둘 때 서버 동작, 도구 19종 표시~~ → 실기 결과 열리지 않음, `.mcpb` 폐기(§11.7)
 - [ ] Claude 앱 Customize › Plugins › Add marketplace(`beaver21c/stata_connect`) → stata-agent 스킬 표시(채팅·Code 탭)
 - [ ] Code 탭에서 `/stata-agent:setup` 전 과정, 새 세션의 `.mcp.json` 승인 창, `${LOCALAPPDATA}` 확장
 - [ ] Code 탭(Windows)에서 hook 실행(`data\…` 읽기 명령 차단 메시지 표시, 일반 명령 통과)
 - [ ] 백신(Windows Defender) 오탐 여부
+
+### 11.7 `.mcpb` 폐기 (2026-11-02)
+- 실기 결과: 사용자 PC(Windows, Stata/SE 17)에서 `.mcpb` 파일이 열리지 않음 [1차 확인: 사용자 실기 보고]
+- 연쇄 영향: 설치 도우미는 Claude 앱 연결을 `.mcpb`에 맡기고 앱 설정 파일을 쓰지 않았음 → 설치 도우미 실행 뒤에도 Claude 앱에 Stata 도구가 연결되지 않음 [1차 확인: `setup_wizard.py` 코드, 사용자 PC 점검 결과 Stata MCP 등록 흔적 없음]
+- 관련 외부 보고: Windows 스토어판(MSIX) Claude 앱 1.12603.x에서 `.mcpb` 설치 창이 아무 표시 없이 닫히고 "Install Unpacked Extension"만 동작한다는 미해결 보고 [2차 확인: 사용자 보고 2건, 개발사 답변 없음]. 사용자 PC 앱 버전과의 일치 여부 [미확인]
+- 결정(사용자): `.mcpb`를 아예 삭제
+  - 빌드: `packaging/build.py`의 manifest 생성·묶음 생성·`--exe`·`--manifest-only` 제거, `Product`는 실행파일 빌드에 쓰는 항목만 유지
+  - 점검·CI: `smoke_test.py --mcpb`, `package-windows`의 Node 설치·`mcpb unpack/validate` 단계, 산출물 `dist/*.mcpb` 제거
+  - 설명서·배포: 다운로드 카드·확인값·FAQ의 확장 항목, `latest.json`의 `mcpb` 항목 제거. 방법 A 순서는 "설치 도우미 실행 → Claude 앱 완전히 종료 후 다시 실행"
+  - 테스트: manifest 검사 대신 빌드 제품 구성과 배포 경로에 `.mcpb`가 남지 않는지 검사
+- 대체: 설치 도우미가 Claude 앱 설정 파일에 직접 등록(별도 변경, 스토어판 설정 파일 위치 차이 대응 포함)
+- 참고자료
+  - oviedomarco1. (2026, June 12). *Installing .mcpb* (Issue #281) [GitHub issue]. modelcontextprotocol/mcpb. https://github.com/modelcontextprotocol/mcpb/issues/281
 
 ## 12. Stata 17 호환 점검 (2026-10-31)
 
@@ -358,7 +373,7 @@ spss-agent configure --clients claude-code --dry-run
 
 ### 13.1 결정
 - 요청: Stata판(§11)과 같은 배포 구성을 SPSS에도 적용 + SPSS 22까지 대응
-- 결론: 실행파일·`.mcpb`·설치 도우미·Claude Code 설치 명령·실행 전 검사를 Stata판과 같은 구조로 제공(공용 코드 `stata_agent.resources.AppPaths`·`hookguard`·`setup_wizard` 보조 함수)
+- 결론: 실행파일·설치 도우미·Claude Code 설치 명령·실행 전 검사를 Stata판과 같은 구조로 제공(`.mcpb`도 제공했으나 2026-11-02 폐기, §11.7)(공용 코드 `stata_agent.resources.AppPaths`·`hookguard`·`setup_wizard` 보조 함수)
 - 22 대응의 핵심 변수: SPSS 버전별 동봉 Python → 엔진 스크립트를 Python 2.7·3.4·3.x 겸용으로 작성
 
 ### 13.2 버전별 동봉 Python과 엔진 선택
@@ -379,7 +394,7 @@ spss-agent configure --clients claude-code --dry-run
 | 출력 인코딩 | `backend.read_output` | UTF-8 실패 시 시스템 인코딩(코드페이지 모드 대비) [논리적 추론] |
 | 표 내보내기 | `service.export` | `.doc`·`.xls` 추가, 27 이하에서 `.docx` 요청은 `.doc`로 저장·안내, 28은 안내만 |
 | 자가 점검·doctor | `selftest.py`, `cli.py` | 22 미만 T1 실패, 동봉 Python 계열 표시, `doctor --json` |
-| 실행파일·확장 | `packaging/build.py`(제품 `spss`), `packaging/entry_spss.py` | `spss-agent-<버전>.exe`·`.mcpb`(user_config: SPSS 설치 폴더·동봉 Python). 이 환경 시험 빌드에서 점검 11항목 통과(실행파일 → 엔진 → 가짜 spss 왕복 포함) [1차 확인] |
+| 실행파일·확장 | `packaging/build.py`(제품 `spss`), `packaging/entry_spss.py` | `spss-agent-<버전>.exe`(함께 만들던 `.mcpb`는 2026-11-02 폐기, §11.7). 이 환경 시험 빌드에서 점검 11항목 통과(실행파일 → 엔진 → 가짜 spss 왕복 포함) [1차 확인] |
 | 설치 도우미 | `spss_agent/setup_wizard.py` | 4단계(실행파일·SPSS 확인·분석 폴더·앱 연결), 화면 연동 단계 없음 |
 | Claude Code 설치 명령 | `plugins/spss-agent/commands/setup.md` | `latest.json`의 `spss` 항목 사용, 인자는 테스트가 파서로 검사 |
 | 실행 전 검사 | `hookguard.py`(공용) | SPSS 직접 실행(`stats.exe`·`runsyntx`·`import spss`·`IBM\SPSS` 경로) 차단 추가 |
@@ -401,7 +416,7 @@ spss-agent configure --clients claude-code --dry-run
 - [ ] SPSS 27 이상: 기존 §10.6 항목
 - [ ] 32비트판(22 등) 탐지(`Program Files (x86)`, WOW6432Node)
 - [ ] `.doc` 내보내기(27 이하)·`.xlsx`(22)
-- [ ] `spss-agent-<버전>.exe` 더블클릭·`.mcpb` 설치 화면·`/spss-agent:setup` 전 과정
+- [ ] `spss-agent-<버전>.exe` 더블클릭·`/spss-agent:setup` 전 과정(`.mcpb` 설치 화면 항목은 폐기, §11.7)
 
 ## 14. 기존 파일 이어 작업·연구자 조작 감지 (2026-11-01)
 
@@ -470,14 +485,14 @@ spss-agent configure --clients claude-code --dry-run
 - Claude Code는 MCP 도구가 돌려준 PNG·JPEG·GIF·WebP 그림을 모델에 그대로 보여 줌. 그 밖 형식(SVG 등)은 파일로 저장하고 경로만 전달 [1차 확인: Claude Code 공식 문서·변경 기록, 하위 조사 열람]
 - 그림 데이터도 `MAX_MCP_OUTPUT_TOKENS`(기본 25,000) 적용 대상이나 계산 방식은 문서에 없음 [1차 확인: 적용 대상 / 미확인: 계산 방식] → 기본 폭 1400px로 내보내 크기를 줄임
 - Claude API 그림 한도: 형식 jpeg·png·gif·webp, 한 장 base64 10MB(Amazon Bedrock 5MB), 긴 변이 기준(표준 1,568px)을 넘으면 축소 [1차 확인: Claude API Vision 문서, 하위 조사 열람] → 3.5MB(base64 약 4.7MB) 상한은 두 한도 안쪽
-- Claude 앱(Desktop·.mcpb)이 MCP 그림을 모델에 전달하는지: 공식 근거 없음, 사용자 보고가 엇갈림(보이는 경우·빈 그림으로 들어온다는 경우) [미확인] → 그래프 창 내보내기 결과에 저장 경로를 함께 적어, 그림이 안 보이면 연구자가 파일을 열도록 안내
+- Claude 앱(Desktop)이 MCP 그림을 모델에 전달하는지: 공식 근거 없음, 사용자 보고가 엇갈림(보이는 경우·빈 그림으로 들어온다는 경우) [미확인] → 그래프 창 내보내기 결과에 저장 경로를 함께 적어, 그림이 안 보이면 연구자가 파일을 열도록 안내
 - Codex: MCP 그림을 모델에 전달하는 변경이 상류에 병합됨(2025-10-27) [2차 확인: GitHub PR], 반영된 배포판 [미확인]
 - Stata `graph export ..., name()`(창 이름 지정)·`width()` 옵션 동작, 배치 모드 PNG 내보내기 [미확인: 실기]
 - 등급 판정은 명령 문자열 기준 정적 추정 [논리적 추론]. 관측치 1개짜리 집단의 막대, 아주 작은 표본의 분포 그림처럼 자료 내용에 따라 개별 값이 드러나는 경우는 걸러내지 못함 [한계]
 
 ### 15.4 실기 검증 체크리스트
 - [ ] Claude Code: `stata_view_graph` 그림이 모델에 보이는지, 1400px PNG가 출력 한도 경고 없이 전달되는지
-- [ ] Claude 앱(.mcpb): 같은 그림이 모델에 보이는지(보이지 않으면 저장 경로 안내만 남는지)
+- [ ] Claude 앱(Desktop): 같은 그림이 모델에 보이는지(보이지 않으면 저장 경로 안내만 남는지)
 - [ ] 그래프 창 내보내기: `name()` 지정·현재 그림, 여러 그래프 창, 창을 닫은 뒤 오류 문구
 - [ ] 배치 모드(`/e`)에서 `graph export` PNG 생성
 - [ ] 등급 판정: 실제 연구 do-file의 그래프 명령(twoway 복합·`by()`·사용자 명령) 표본 대조
@@ -528,3 +543,50 @@ spss-agent configure --clients claude-code --dry-run
 7. StataCorp. (n.d.). *pystata.config* (Stata 18). https://www.stata.com/python/pystata18/config.html (검색 결과 요약으로 확인, 원문 미열람)
 8. StataCorp. (n.d.). *pystata.stata* (Stata 17). https://www.stata.com/python/pystata17/stata.html (검색 결과 요약으로 확인, 원문 미열람)
 9. StataCorp. (n.d.). *Installation* (pystata, Stata 17). https://www.stata.com/python/pystata17/install.html (검색 결과 요약으로 확인, 원문 미열람)
+
+## 17. Claude 앱 직접 등록·Desktop Commander 대응 (2026-11-02)
+
+### 17.1 실기 결과·결정
+- 실기(사용자 PC: Windows, Stata/SE 17.0 `C:\Stata17`): 설치 도우미 실행 뒤 Claude 앱 채팅에 "Stata 연결 점검해줘" → Stata 도구가 아니라 Claude가 **Desktop Commander로 Stata를 직접 배치 실행**하고 로그를 읽어 보고함 [1차 확인: 사용자 실기 보고]
+  - Claude 앱에 Stata MCP 등록 없음, 일반 위치 `%APPDATA%\Claude\claude_desktop_config.json` 없음 [1차 확인: 사용자 PC의 Claude 점검]
+  - 원인: 설치 도우미가 Claude 앱 연결을 `.mcpb`에 맡기고 앱 설정 파일을 쓰지 않음 [1차 확인: 코드] + `.mcpb`가 열리지 않음(§11.7)
+- **정정**: §11.4와 설명서의 "채팅 앱은 PC 명령을 직접 실행할 수 없어 더 엄격"은 틀림
+  - 건너뛴 확인: Claude 앱도 PC 명령·파일 도구(Desktop Commander 등)를 붙일 수 있다는 점을 확인하지 않고 [논리적 추론]으로 단정함
+  - 같은 유형 점검: 설명서 비교표의 "이럴 때 A(민감자료)" 권고도 같은 전제 → 함께 수정
+- 사용자 결정: (1) 설치 도우미가 Claude 앱 설정을 직접 등록, 연구자에게 PowerShell 등 진단을 요구하지 않음("쉽게 사용하게 하는 것") (2) Desktop Commander는 안내 + 차단 설정 자동 추가
+
+### 17.2 구현 대응
+| 구성 | 파일 | 내용 |
+|---|---|---|
+| 앱 위치 감지 | `client_config.claude_desktop_config_paths` | Microsoft Store판 `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\`(패키지 폴더가 있으면 설정 폴더가 없어도 대상) + 일반 설치 `%APPDATA%\Claude\`(폴더가 있을 때만). 감지된 곳 모두에 기록 |
+| 설정 기록 | `merge_desktop_config` | 기존 서버·설정 유지 병합, 읽기는 BOM 허용, 쓰기는 BOM 없는 UTF-8을 같은 폴더 임시 파일 → 교체 |
+| 백업 | `client_config.backup` | 같은 초에 두 번 고쳐도 첫 사본이 덮이지 않도록 번호 추가(아래 17.4 사고에서 발견한 결함) |
+| 설치 도우미 | Stata `[5/6]`·SPSS `[4/5]` | Claude 앱을 자동 감지해 연결 대상에 포함, 결과를 "Claude 앱(Microsoft Store판): 등록 완료 / 설정 파일 / 이전 설정 백업"처럼 표시. 끝 화면에 "Claude 완전 종료(알림 영역 아이콘 포함) → 다시 실행 → 'Stata 연결 점검해줘'" |
+| Desktop Commander | `dc_guard.py`, 설치 도우미 `[6/6]`·`[5/5]` | `~/.claude-server-commander/config.json`이 있을 때만 `blockedCommands`에 Stata·SPSS 실행파일 이름(소문자, .exe 있음·없음) 추가. 기존 항목·다른 설정 유지, 잠금(`config.json.lock`)이 30초 이내면 대기 후 포기, 백업 후 원자적 쓰기. 파일 읽기는 막지 못하므로 "분석 대화에서는 끌 것" 안내 |
+| 서버 지침 | 두 `server.py`의 `instructions` | "분석은 이 서버 도구로만, 셸·파일 도구로 실행파일 실행·data 열람 금지, 연결 점검은 status·selftest" |
+| 스킬·지침 | 두 SKILL.md, 두 `project.py` P2 | 같은 금지 규칙 추가, 템플릿 재생성 |
+| 설명서 | `site/index.html`·`spss.html` | 비교표 원자료 보호 행 정정, FAQ "Desktop Commander가 켜져 있어요", "도구가 보이지 않아요" 절차 갱신 |
+| 테스트 격리 | `tests/conftest.py` | 모든 테스트에서 APPDATA·LOCALAPPDATA·Desktop Commander 설정 위치를 임시 폴더로 바꿈 |
+
+### 17.3 확인한 사실과 지위
+- 스토어판(MSIX) Claude 앱은 설정을 `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`에서 읽고, 앱의 '설정 편집' 버튼은 `%APPDATA%\Claude\…`를 엶 → 일반 위치에 쓴 서버가 조용히 무시된다는 미해결 보고 [2차 확인: GitHub 보고, 개발사 답변 없음]. 패키지 이름 뒤 식별자는 설치마다 같은지 [미확인] → `Claude_*`로 찾음
+- 사용자 PC 앱의 설치 형태(스토어판 여부) [미확인 — 다음 실기에서 설치 도우미 화면으로 확인]
+- Desktop Commander 설정 파일 `~/.claude-server-commander/config.json`, 차단 규칙은 명령을 구분자 단위로 나눠 첫 낱말의 파일 이름을 소문자로 바꾼 뒤 목록과 정확히 비교 [1차 확인: DesktopCommanderMCP main 소스 `src/config.ts`·`src/command-manager.ts`, 이 환경의 0.3.1 `get_config`]
+- 같은 README: 차단은 "우회 가능"하며 "샌드박스가 아님", 허용 폴더 설정은 파일 도구만 제한 [1차 확인] → 실행파일 이름 차단은 사고 방지 수준
+- Claude Code는 MCP 서버 `instructions`를 AI 지시에 넣음 [1차 확인: Claude Code 세션의 'MCP Server Instructions' 절]. Claude 앱 반영 여부 [미확인]
+- Claude 앱이 실행 중일 때 설정 파일을 다시 쓰면서 외부 변경을 지우는지 [미확인] → 끝 화면에서 완전 종료 후 재실행 안내
+
+### 17.4 개발 중 사고 기록
+- 설치 도우미 테스트(`yes=True`, 실제 기록)가 개발 환경(클라우드 컨테이너)의 실제 Desktop Commander 설정에 차단 항목을 추가함 [1차 확인]
+- 같은 초에 두 번 기록되어 백업 사본이 덮여 원본 사본이 남지 않음 → 추가된 항목(이 도구가 넣는 이름 목록과 정확히 일치)만 제거해 원래 33개 항목으로 복구, `get_config`로 복구 확인 [1차 확인]
+- 재발 방지: 테스트 격리 fixture(17.2), 백업 이름 충돌 수정
+
+### 17.5 실기 검증 체크리스트
+- [ ] 새 설치 도우미 실행 → `[5/6]`에 "Claude 앱(…): 등록 완료"와 설정 파일 경로 표시
+- [ ] Claude 앱 완전 종료·재실행 → "Stata 연결 점검해줘"에 Stata 도구(`stata_status`·`stata_selftest`)로 응답하는지
+- [ ] `[6/6]` Desktop Commander 차단 추가 → Claude에게 Stata 직접 실행을 요청했을 때 Desktop Commander가 거부하는지
+- [ ] 스토어판·일반판 각각에서 등록이 반영되는지(가능한 범위)
+
+### 17.6 참고자료
+1. 0xc4b4l. (2026, February 16). *[BUG] Windows MSIX: "Edit Config" opens wrong claude_desktop_config.json — MCP servers silently fail to load* (Issue #26073) [GitHub issue]. anthropics/claude-code. https://github.com/anthropics/claude-code/issues/26073
+2. wonderwhy-er. (2026). *DesktopCommanderMCP* [Software, src/config.ts·src/command-manager.ts·README]. GitHub. https://github.com/wonderwhy-er/DesktopCommanderMCP

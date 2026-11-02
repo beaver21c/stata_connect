@@ -75,20 +75,20 @@
   <table class="cmp">
     <thead><tr><th></th><th>A. 클릭 설치<br><span class="meta">Claude 앱 채팅에서 분석</span></th><th>B. Claude Code에게 맡기기<br><span class="meta">Claude 앱 Code 탭에서 분석</span></th></tr></thead>
     <tbody>
-      <tr><th>내가 하는 일</th><td data-label="A. 클릭 설치">확장 파일 더블클릭 + 앱 메뉴에서 플러그인 추가</td><td data-label="B. Claude Code">플러그인 추가 후 <code>/spss-agent:setup</code> 입력, 이후 승인만</td></tr>
+      <tr><th>내가 하는 일</th><td data-label="A. 클릭 설치">설치 도우미 1개 더블클릭 + 앱 메뉴에서 플러그인 추가</td><td data-label="B. Claude Code">플러그인 추가 후 <code>/spss-agent:setup</code> 입력, 이후 승인만</td></tr>
       <tr><th>설치 중 문제 해결</th><td data-label="A. 클릭 설치">설명서 질문 항목을 보고 직접 조치</td><td data-label="B. Claude Code">Claude가 오류 출력을 읽고 원인·다음 조치를 설명(SPSS 폴더·동봉 Python 위치 확인 포함)</td></tr>
       <tr><th>분석하는 화면</th><td data-label="A. 클릭 설치">일반 채팅(대화 위주)</td><td data-label="B. Claude Code">폴더 단위 작업 화면(.sps·출력 파일을 함께 봄)</td></tr>
-      <tr><th>원자료 보호</th><td data-label="A. 클릭 설치">채팅 앱은 PC 명령을 직접 실행할 수 없어 SPSS 도구의 차단·필터만 거침 → <b>더 엄격</b></td><td data-label="B. Claude Code">Claude Code는 PC 명령을 실행할 수 있음 → 폴더 권한 규칙·실행 전 검사로 막지만 우회 가능성이 남음. 승인 창의 명령을 읽고 허용할 것</td></tr>
+      <tr><th>원자료 보호</th><td data-label="A. 클릭 설치">Claude 앱에 PC 명령 도구(Desktop Commander 등)가 꺼져 있으면 SPSS 도구의 차단·필터만 거침. 켜져 있으면 Claude가 SPSS를 직접 실행하거나 자료 파일을 열 수 있음 → 설치 도우미가 SPSS 직접 실행을 막아 두지만 파일 읽기는 못 막으므로 <b>분석 대화에서는 그 도구를 끌 것</b></td><td data-label="B. Claude Code">Claude Code는 PC 명령을 실행할 수 있음 → 폴더 권한 규칙·실행 전 검사로 막지만 우회 가능성이 남음. 승인 창의 명령을 읽고 허용할 것</td></tr>
       <tr><th>필요한 요금제</th><td data-label="A. 클릭 설치">Claude Pro 이상(권장)</td><td data-label="B. Claude Code">Claude Pro 이상(필수)</td></tr>
       <tr><th>현재 상태</th><td data-label="A. 클릭 설치"><span class="chip trial">시험판</span></td><td data-label="B. Claude Code"><span class="chip trial">시험판</span></td></tr>
     </tbody>
   </table>
   </div>
   <div class="pick">
-    <div><b>이럴 때 A</b>처음 쓰는 경우, 행정자료·민감자료를 다루는 경우, 대화로 결과 해석을 주로 받는 경우</div>
+    <div><b>이럴 때 A</b>처음 쓰는 경우, 대화로 결과 해석을 주로 받는 경우. 민감자료는 PC 명령 도구를 끈 상태에서 사용</div>
     <div><b>이럴 때 B</b>설치를 AI에게 맡기고 싶은 경우, .sps·출력 파일을 폴더 단위로 관리하며 길게 작업하는 경우</div>
   </div>
-  <p class="note">원자료 보호 비교는 공식 문서 확인 사항(Claude Code의 파일 읽기 차단 규칙은 스크립트가 직접 파일을 여는 경우까지는 막지 못함)에 근거한 판단임.</p>
+  <p class="note">원자료 보호 비교 근거: Claude Code의 파일 읽기 차단 규칙은 스크립트가 직접 파일을 여는 경우까지는 막지 못함(공식 문서), Claude 앱도 Desktop Commander가 켜져 있으면 PC 명령을 실행함(2026-11-02 실제 PC 시험에서 확인).</p>
 </section>
 
 <section id="download">
@@ -97,22 +97,10 @@
   <div class="dl">
     <article>
       <div class="head">
-        <div><h3>Claude 데스크톱 확장(SPSS)</h3><div class="file">{{SPSS_MCPB_FILE}}</div></div>
-        <span class="chip trial">시험판</span>
-      </div>
-      <p>Claude 앱(채팅)에 SPSS 연결 도구를 넣는 파일. 더블클릭하면 Claude 앱의 설치 화면이 열림. 방법 A용.</p>
-      {{SPSS_MCPB_BUTTON}}
-      <details>
-        <summary>파일 확인값(SHA-256)</summary>
-        <p class="meta"><code>{{SPSS_MCPB_SHA256}}</code></p>
-      </details>
-    </article>
-    <article>
-      <div class="head">
         <div><h3>설치 도우미(SPSS)</h3><div class="file">{{SPSS_EXE_FILE}}</div></div>
         <span class="chip trial">시험판</span>
       </div>
-      <p>더블클릭하면 질문에 답하며 진행: SPSS·동봉 Python 확인, Codex·Claude Code 연결. Codex 사용자용(Claude 앱만 쓰면 필요 없음).</p>
+      <p>더블클릭하면 질문에 답하며 진행: SPSS·동봉 Python 확인, Claude 앱·Claude Code·Codex 연결(설치 도우미가 각 앱 설정에 직접 등록). 방법 A와 Codex용.</p>
       {{SPSS_EXE_BUTTON}}
       <details>
         <summary>파일 확인값(SHA-256)</summary>
@@ -159,9 +147,10 @@
         <li><b class="t">SPSS 분석 스킬 추가(플러그인)</b>
           <div class="path"><span>Customize</span><i>›</i><span>Plugins</span><i>›</i><span>Add</span><i>›</i><span>Add marketplace</span></div>
           <p>주소 칸에 <code class="cmd">beaver21c/stata_connect</code> 입력 → 목록의 <b>spss-agent</b> 추가.</p></li>
-        <li><b class="t">SPSS 연결 확장 설치</b>
-          <p>다운로드의 <b>{{SPSS_MCPB_FILE}}</b>을 받아 더블클릭 → Claude 앱 설치 화면에서 설치. SPSS를 자동으로 못 찾을 때만 설정 칸에 SPSS 설치 폴더(stats.exe가 있는 폴더)를 지정.</p>
-          <p class="note">더블클릭으로 열리지 않으면: Settings › Extensions › Advanced settings › Install Extension…에서 파일 선택(MCPB 공식 안내).</p></li>
+        <li><b class="t">설치 도우미 실행</b>
+          <p>다운로드의 <b>{{SPSS_EXE_FILE}}</b>을 받아 더블클릭 → 질문에 답하며 진행: SPSS·동봉 Python 확인 → Claude 앱 연결(설치 도우미가 Claude 앱 설정에 SPSS 도구를 직접 등록).</p></li>
+        <li><b class="t">Claude 앱 완전히 종료 후 다시 실행</b>
+          <p>창만 닫으면 작업 표시줄 알림 영역에 남아 있을 수 있음 → 알림 영역 아이콘에서 종료한 뒤 다시 실행해야 연결이 반영됨.</p></li>
         <li><b class="t">새 채팅에 “SPSS 연결 점검해줘” 입력</b>
           <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로. T1이 “동봉 Python 없음”이면 아래 자주 묻는 질문 참조.</p></li>
       </ol>
@@ -262,6 +251,10 @@
 <section id="faq">
   <h2>자주 묻는 질문</h2>
   <details>
+    <summary>Claude 앱에 Desktop Commander가 켜져 있어요</summary>
+    <p>Desktop Commander는 Claude가 PC에서 명령을 실행하고 파일을 읽게 해 주는 도구임. 켜져 있으면 Claude가 SPSS 도구를 거치지 않고 SPSS를 직접 실행하거나 <code>data</code> 폴더의 자료 파일을 열 수 있어 원자료 보호가 무력화됨. 설치 도우미는 Desktop Commander가 SPSS 실행파일을 실행하지 못하도록 차단 목록에 추가함(이전 설정은 백업). 다만 이 차단은 실행파일 이름으로만 막는 사고 방지 장치라 우회될 수 있고, 파일 읽기는 막지 못함 → <b>SPSS 분석 대화에서는 Desktop Commander를 끈 상태로 사용</b>할 것.</p>
+  </details>
+  <details>
     <summary>SPSS 창이 안 뜨는데 정상인가요?</summary>
     <p>정상임. SPSS를 화면 없이 실행하는 방식이라 창이 뜨지 않음. 결과는 프로젝트의 <code>output/logs</code> 폴더에 남고, 같은 .sps 파일을 SPSS에서 직접 열어 실행해 볼 수 있음.</p>
   </details>
@@ -271,7 +264,7 @@
   </details>
   <details>
     <summary>점검에서 “동봉 Python 없음”이 나와요</summary>
-    <p>SPSS를 설치할 때 <b>Python Essentials</b>(Integration Plug-in for Python)가 빠졌을 가능성이 있음. SPSS 설치 프로그램에서 해당 구성요소를 추가하거나, 기관 전산 담당자에게 요청. Python이 다른 위치에 있으면 확장 설정의 “SPSS 동봉 Python” 칸에 python.exe를 지정.</p>
+    <p>SPSS를 설치할 때 <b>Python Essentials</b>(Integration Plug-in for Python)가 빠졌을 가능성이 있음. SPSS 설치 프로그램에서 해당 구성요소를 추가하거나, 기관 전산 담당자에게 요청. Python이 다른 위치에 있으면 설치 도우미를 명령 창에서 <code>setup --spss-python "python.exe 경로"</code>로 실행해 지정(SPSS 폴더를 못 찾을 때는 <code>--spss-home "stats.exe가 있는 폴더"</code>).</p>
   </details>
   <details>
     <summary>Word로 받은 표가 .doc로 저장됐어요</summary>

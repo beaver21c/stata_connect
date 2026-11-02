@@ -2,7 +2,7 @@ name: pages
 
 # 설명서 사이트(설계서 §0.6) 배포 → https://beaver21c.github.io/stata_connect/
 # 최초 1회: 저장소 Settings > Pages > Build and deployment > Source를 "GitHub Actions"로 지정해야 함
-# 배포 파일(실행파일·.mcpb)은 package-windows 작업이 Windows에서 빌드·점검한 결과를 그대로 사용
+# 배포 파일(실행파일)은 package-windows 작업이 Windows에서 빌드·점검한 결과를 그대로 사용
 on:
   push:
     branches: [main]

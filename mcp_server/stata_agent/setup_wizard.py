@@ -5,7 +5,9 @@
 2. Stata 탐지(설치·에디션·버전·라이선스). 등록자·일련번호는 출력하지 않음
 3. Stata 화면 연동(COM) 등록 — 관리자 승인(UAC) 1회. 거절해도 배치 실행으로 동작
 4. (선택) 분석 폴더 생성(규약 폴더·지침·Claude Code 권한·실행 전 검사)
-5. 설치된 AI 앱에 연결(Claude Code·Codex 설정 병합, 기존 설정 백업). Claude 데스크톱 앱(채팅)은 .mcpb 확장 권장
+5. 설치된 AI 앱에 연결(기존 설정 백업 후 병합): Claude 앱(채팅) 설정 파일 직접 기록 — 일반판·Microsoft Store판
+   위치 자동 감지(§17), Claude Code·Codex
+6. 원자료 보호 보강: Desktop Commander(Claude 앱의 PC 명령 실행 도구) 차단 목록에 Stata 실행파일 추가(§17)
 
 실행 방식
 - 더블클릭: 질문에 답하며 진행(끝에 Enter 대기)
@@ -24,7 +26,15 @@ from pathlib import Path
 from typing import Callable
 
 from . import __version__
-from .client_config import Change, claude_desktop_config_path, codex_home, configure_all, merge_project_mcp
+from .client_config import (
+    DESKTOP_CONFIG,
+    Change,
+    claude_desktop_config_paths,
+    codex_home,
+    configure_all,
+    merge_project_mcp,
+)
+from .dc_guard import DC_NOTICE, STATA_COMMANDS, add_blocked_commands
 from .discovery import IS_WINDOWS, com_registration, discover, version_declaration
 from .project import init_project
 from .resources import hook_command, installed_exe, is_frozen, project_command, self_command, skill_source
@@ -33,8 +43,58 @@ CLIENT_LABELS = {
     "claude-code": "Claude Code(모든 폴더, claude 명령 필요)",
     "claude-code-project": "Claude Code(분석 폴더 .mcp.json)",
     "codex": "Codex",
-    "claude-desktop": "Claude 데스크톱 앱(설정 파일 직접 기록)",
+    "claude-desktop": "Claude 앱(채팅)",
 }
+_ACTION_WORDS = {"created": "등록 완료", "updated": "등록 완료", "unchanged": "이미 등록됨", "planned": "등록 예정",
+                 "skipped": "생략", "error": "실패"}
+
+
+def describe_change(c: Change) -> str:
+    """설치 화면 표시용. Claude 앱 설정은 쉬운 말로(설치 형태·결과), 그 밖은 기존 형식."""
+    target = c.target.replace("\\", "/")
+    if target.endswith(DESKTOP_CONFIG):
+        kind = "Microsoft Store판" if "/Packages/Claude_" in target else "일반 설치"
+        line = f"  Claude 앱({kind}): {_ACTION_WORDS.get(c.action, c.action)}"
+        if c.action == "error":
+            line += f" — {c.detail}"
+        line += f"\n    설정 파일: {c.target}" + (f"\n    이전 설정 백업: {c.backup}" if c.backup else "")
+        return line
+    if c.target == "Claude 앱":
+        return f"  Claude 앱: {_ACTION_WORDS.get(c.action, c.action)} — {c.detail}"
+    return f"  [{c.action}] {c.target} {c.detail}" + (f" (백업: {c.backup})" if c.backup else "")
+
+
+def protect_desktop_commander(commands: tuple[str, ...], product: str, opts, ask, out) -> list[str]:
+    """6단계 공통(Stata·SPSS): Desktop Commander 설정이 있으면 차단 목록 보강 + 끄기 안내. 반환: 오류."""
+    preview = add_blocked_commands(commands, dry_run=True)
+    if preview.action == "skipped":
+        out("  Desktop Commander 미사용 → 생략")
+        return []
+    if preview.action == "unchanged":
+        out(f"  Desktop Commander: {product} 실행 차단 이미 설정됨")
+        out("  ※ " + DC_NOTICE)
+        return []
+    if preview.action == "error":
+        out(f"  Desktop Commander: {preview.detail}")
+        return [f"Desktop Commander: {preview.detail}"]
+    if not _yes(f"  Claude 앱의 Desktop Commander(PC 명령 실행 도구)가 {product}를 직접 실행하지 못하게 막을까?",
+                opts, ask):
+        out("  생략 — ※ " + DC_NOTICE)
+        return []
+    c = add_blocked_commands(commands, dry_run=opts.dry_run)
+    words = {"updated": "차단 추가 완료", "planned": "차단 추가 예정", "unchanged": "이미 차단됨", "error": "실패"}
+    out(f"  Desktop Commander: {words.get(c.action, c.action)}"
+        + (f" — {c.detail}" if c.detail else "") + (f" (이전 설정 백업: {c.backup})" if c.backup else ""))
+    out("  ※ " + DC_NOTICE)
+    return [f"Desktop Commander: {c.detail}"] if c.action == "error" else []
+
+
+FINISH_TEXT = (
+    "준비 완료. 남은 일:\n"
+    "  1) Claude 앱을 완전히 종료 — 창을 닫은 뒤 화면 오른쪽 아래 알림 영역에 Claude 아이콘이 남아 있으면 그 메뉴에서 종료\n"
+    "  2) Claude 앱을 다시 실행 → 채팅창에 '{product} 연결 점검해줘' 입력\n"
+    "  (Codex·Claude Code를 쓰면 그 앱도 다시 실행)"
+)
 
 
 @dataclass
@@ -132,6 +192,8 @@ def register_com(stata_exe: str, unregister: bool = False, runner=subprocess.run
 
 def detect_clients() -> list[str]:
     found: list[str] = []
+    if claude_desktop_config_paths():
+        found.append("claude-desktop")
     if shutil.which("claude"):
         found.append("claude-code")
     if shutil.which("codex") or codex_home().is_dir():
@@ -140,8 +202,7 @@ def detect_clients() -> list[str]:
 
 
 def desktop_app_present() -> bool:
-    path = claude_desktop_config_path()
-    return bool(path and path.parent.is_dir())
+    return bool(claude_desktop_config_paths())
 
 
 def _client_list(opts: SetupOptions) -> list[str]:
@@ -161,7 +222,7 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
     out("-" * 60)
 
     # 1
-    out("[1/5] 실행파일 설치")
+    out("[1/6] 실행파일 설치")
     exe: Path | None = None
     if opts.install:
         exe, msg = install_self(opts.dry_run)
@@ -172,11 +233,11 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
         out("  생략(--no-install)")
 
     # 2
-    out("[2/5] Stata 확인")
+    out("[2/6] Stata 확인")
     rep = discover(run_about_checks=not opts.dry_run, preferred_exe=opts.stata_exe)
     sel = rep.selected
     if sel is None:
-        out("  Stata를 찾지 못함 → 나중에 설치하거나, Claude 확장 설정의 'Stata 실행파일'에 경로 지정")
+        out("  Stata를 찾지 못함 → Stata 설치 후 이 설치 도우미를 다시 실행(설치 위치가 특이하면 --stata-exe로 지정)")
     else:
         about = sel.about
         desc = f"{sel.exe} ({sel.edition or '에디션 미확인'})"
@@ -189,7 +250,7 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
             out("  주의: Stata 17 미만은 지원 범위 밖(표 내보내기 etable·collect 등 17 이상 기능 사용)")
 
     # 3
-    out("[3/5] Stata 화면 연동(COM) 등록")
+    out("[3/6] Stata 화면 연동(COM) 등록")
     com_ok = rep.com.registered
     if not IS_WINDOWS:
         out("  Windows 전용 → 생략(배치 실행 사용)")
@@ -213,7 +274,7 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
                 out("  → 배치 실행으로 계속 동작함(화면 연동만 제외)")
 
     # 4
-    out("[4/5] 분석 폴더")
+    out("[4/6] 분석 폴더")
     project_root: Path | None = None
     if opts.project:
         project_root = Path(opts.project).expanduser()
@@ -227,13 +288,13 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
         out("  생략(AI에게 '이 폴더로 분석 시작'이라고 하면 stata_open_session이 자동 생성)")
 
     # 5
-    out("[5/5] AI 앱 연결")
+    out("[5/6] AI 앱 연결")
     server = self_command(exe)
     pinned_env = {"STATA_AGENT_STATA_EXE": opts.stata_exe} if opts.stata_exe else {}
     server.env.update(pinned_env)
     clients = _client_list(opts)
     if not clients:
-        out("  연결할 앱 없음(Claude Code·Codex 미감지)")
+        out("  연결할 앱 없음(Claude 앱·Claude Code·Codex 미감지 → 앱 설치 후 한 번 실행하고 다시 실행)")
     for client in clients:
         label = CLIENT_LABELS.get(client, client)
         if client == "claude-code-project":
@@ -244,7 +305,7 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
             pcmd = project_command(exe)
             pcmd.env.update(pinned_env)
             c = merge_project_mcp(project_root, pcmd, dry_run=opts.dry_run)
-            out(f"  [{c.action}] {c.target} {c.detail}" + (f" (백업: {c.backup})" if c.backup else ""))
+            out(describe_change(c))
             if c.action == "error":
                 errors.append(f"{c.target}: {c.detail}")
             changes.append(c)
@@ -254,18 +315,20 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
             continue
         result = configure_all(server, skill_source(), [client], opts.dry_run, install_skills=opts.skill)
         for c in result:
-            out(f"  [{c.action}] {c.target} {c.detail}" + (f" (백업: {c.backup})" if c.backup else ""))
+            out(describe_change(c))
             if c.action == "error":
                 errors.append(f"{c.target}: {c.detail}")
         changes.extend(result)
-    if desktop_app_present() and "claude-desktop" not in clients:
-        out("  Claude 데스크톱 앱(채팅) 감지 → 설명서의 '.mcpb 확장' 파일을 더블클릭해 설치(설정 화면 자동)")
+
+    # 6
+    out("[6/6] 원자료 보호(다른 AI 도구)")
+    errors += protect_desktop_commander(STATA_COMMANDS, "Stata", opts, ask, out)
 
     out("-" * 60)
     if errors:
         out("일부 단계 실패: " + " / ".join(errors))
     else:
-        out("준비 완료 → 사용하는 AI 앱(Claude·Codex)을 완전히 종료한 뒤 다시 실행할 것")
+        out(FINISH_TEXT.format(product="Stata"))
     if opts.pause and not opts.yes:
         try:
             ask("Enter를 누르면 창이 닫힘")

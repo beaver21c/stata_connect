@@ -11,7 +11,7 @@ SPSS가 계산하고 AI는 문법(.sps) 작성·결과 판독·해석을 맡는 
 2. 분석 폴더에서 `/spss-agent:setup` 실행 → 안내에 따라 승인
 3. 새 세션에서 "SPSS 연결 점검해줘"
 
-Claude 채팅 앱(데스크톱): Customize › Plugins › Add marketplace에 `beaver21c/stata_connect` 입력 → 스킬만 사용됨. SPSS 연결은 설명서 SPSS 페이지의 `.mcpb` 확장으로 설치.
+Claude 채팅 앱(데스크톱): Customize › Plugins › Add marketplace에 `beaver21c/stata_connect` 입력 → 스킬만 사용됨. SPSS 연결은 설명서 SPSS 페이지의 설치 도우미(실행파일)가 Claude 앱 설정에 직접 등록.
 
 지원: SPSS Statistics 22 이상(Windows), 설치 시 Python Essentials(동봉 Python) 포함 필요
 

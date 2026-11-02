@@ -7,11 +7,10 @@
 4. hook-guard: 원자료 명령 차단(종료 코드 2), 일반 명령 통과(0)
 5. setup --dry-run: 질문 없이 끝까지 진행
 6. 묶은 스킬: configure --dry-run에서 스킬 원본 오류 없음
-7. (선택) .mcpb: manifest.json·server/<제품>-agent.exe 포함, 도구 목록·버전 일치
 SPSS만
-8. 실행파일 → 엔진 스크립트 → 가짜 spss 모듈(tests/fake_spss_home)까지 MCP 도구 호출로 세션 열기·문법 실행
+7. 실행파일 → 엔진 스크립트 → 가짜 spss 모듈(tests/fake_spss_home)까지 MCP 도구 호출로 세션 열기·문법 실행
 
-사용: python packaging/smoke_test.py <실행파일> [--product stata|spss] [--mcpb <파일>]
+사용: python packaging/smoke_test.py <실행파일> [--product stata|spss]
 """
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +37,7 @@ SETUP_ARGS = {
     "stata": ["setup", "--yes", "--dry-run", "--clients", "none", "--com", "no", "--no-install"],
     "spss": ["setup", "--yes", "--dry-run", "--clients", "none", "--no-install"],
 }
-SETUP_LAST_STEP = {"stata": "[5/5]", "spss": "[4/4]"}
+SETUP_LAST_STEP = {"stata": "[6/6]", "spss": "[5/5]"}  # 마지막 단계: 원자료 보호(Desktop Commander, §17)
 
 
 def run(exe: str, *args: str, stdin: str | None = None, timeout: int = 120) -> subprocess.CompletedProcess:
@@ -103,7 +101,6 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("exe")
     ap.add_argument("--product", choices=("stata", "spss"), default="stata")
-    ap.add_argument("--mcpb")
     args = ap.parse_args()
     exe = str(Path(args.exe).resolve())
     prod = args.product
@@ -148,14 +145,6 @@ def main() -> int:
 
     r = run(exe, "configure", "--clients", "codex", "--dry-run")
     ok &= check(r.returncode == 0 and "원본 스킬 없음" not in r.stdout, "묶은 스킬", r.stdout[-500:])
-
-    if args.mcpb:
-        with zipfile.ZipFile(args.mcpb) as zf:
-            names = set(zf.namelist())
-            man = json.loads(zf.read("manifest.json"))
-        ok &= check(f"server/{prod}-agent.exe" in names, ".mcpb 실행파일 포함", str(sorted(names)[:10]))
-        ok &= check(sorted(t["name"] for t in man["tools"]) == EXPECTED[prod] and man["version"] == __version__,
-                    ".mcpb manifest 도구·버전")
 
     if prod == "spss":
         work = Path(tempfile.mkdtemp(prefix="sa_smoke_"))

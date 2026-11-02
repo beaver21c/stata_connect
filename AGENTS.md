@@ -16,7 +16,7 @@
 - 일련번호·등록자는 로컬 `stata-agent doctor` 화면에만 표시. 도구 반환·점검 보고서에 넣지 않음
 - 문서·주석은 한국어 보고서체. 확인되지 않은 사실은 [미확인] 등 지위 표기
 - PowerShell 스크립트는 UTF-8 BOM으로 저장(Windows PowerShell 5.1 한글 처리)
-- 배포 구성(IMPLEMENTATION_STATUS §11): 단일 실행파일·`.mcpb`는 `packaging/build.py`(manifest 도구 목록은 `tool_specs`에서 생성), 점검은 `packaging/smoke_test.py`(CI `package-windows`). 스킬 원본은 `plugins/<플러그인>/skills/<스킬>/`
+- 배포 구성(IMPLEMENTATION_STATUS §11): 단일 실행파일은 `packaging/build.py`, 점검은 `packaging/smoke_test.py`(CI `package-windows`). Claude 데스크톱 확장(`.mcpb`)은 폐기(§11.7) → Claude 앱 연결은 설치 도우미가 앱 설정에 직접 등록. 스킬 원본은 `plugins/<플러그인>/skills/<스킬>/`
 - 버전 올릴 때: `mcp_server/stata_agent/__init__.py`와 `plugins/*/.claude-plugin/plugin.json`의 version을 함께 수정(테스트가 일치 검사)
 - 플러그인 검사: `claude plugin validate .`·`claude plugin validate ./plugins/stata-agent`. 플러그인에 MCP 서버·최상위 `bin/`을 넣지 않음(도구 이름 변경·claude.ai 설치 불가)
 - 지원 Stata 범위: 17 이상(`discovery.MIN_SUPPORTED_MAJOR`). 18 이상 전용 명령을 서버 코드·스킬에 쓰지 않음(§12)

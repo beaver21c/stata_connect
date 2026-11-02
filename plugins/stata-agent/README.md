@@ -11,7 +11,7 @@ Stata가 계산하고 AI는 do-file 작성·결과 판독·해석을 맡는 분�
 2. 분석 폴더에서 `/stata-agent:setup` 실행 → 안내에 따라 승인
 3. 새 세션에서 "Stata 상태 확인해줘"
 
-Claude 채팅 앱(데스크톱): Customize › Plugins › Add marketplace에 `beaver21c/stata_connect` 입력 → 스킬만 사용됨. Stata 연결은 설명서의 `.mcpb` 확장으로 설치.
+Claude 채팅 앱(데스크톱): Customize › Plugins › Add marketplace에 `beaver21c/stata_connect` 입력 → 스킬만 사용됨. Stata 연결은 설명서의 설치 도우미(실행파일)가 Claude 앱 설정에 직접 등록.
 
 ## 데이터
 이 플러그인은 외부 서버로 자료를 보내지 않음. 설치 명령은 설명서 사이트(beaver21c.github.io)에서 실행파일만 내려받음.
