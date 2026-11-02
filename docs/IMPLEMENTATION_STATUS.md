@@ -575,6 +575,10 @@ spss-agent configure --clients claude-code --dry-run
 - 같은 README: 차단은 "우회 가능"하며 "샌드박스가 아님", 허용 폴더 설정은 파일 도구만 제한 [1차 확인] → 실행파일 이름 차단은 사고 방지 수준
 - Claude Code는 MCP 서버 `instructions`를 AI 지시에 넣음 [1차 확인: Claude Code 세션의 'MCP Server Instructions' 절]. Claude 앱 반영 여부 [미확인]
 - Claude 앱이 실행 중일 때 설정 파일을 다시 쓰면서 외부 변경을 지우는지 [미확인] → 끝 화면에서 완전 종료 후 재실행 안내
+- **Claude Code 연결(2026-11-02 추가)**: Claude 앱의 Code 탭(로컬 세션)은 `~/.claude.json`·프로젝트 `.mcp.json`과 함께 `claude_desktop_config.json`의 MCP 서버를 읽음 [1차 확인: Claude Code 공식 문서 desktop.md "Shared configuration", 하위 조사 열람] → 설치 도우미의 Claude 앱 등록만으로 Code 탭에서도 Stata 도구 사용 가능. 터미널 `claude` 명령(CLI)은 `claude_desktop_config.json`을 읽지 않음 [1차 확인: 같은 문서] → CLI는 `claude mcp add --scope user`로 따로 등록
+- Windows 기본 설치 프로그램은 `claude.exe`를 `%USERPROFILE%\.local\bin`에 두고 PATH를 바꾸지 않음 [1차 확인: 공식 문서 troubleshoot-install.md] → 설치 도우미가 이 위치도 찾음(§18). Code 탭은 앱이 내려받은 자체 Claude Code를 씀 [1차 확인: desktop.md] → `claude` 명령이 없어도 됨
+- `~/.claude.json` 직접 편집은 문서화된 절차가 아니고 Claude Code도 이 파일을 씀 [1차 확인: 문서 "직접 편집할 필요 없음"] → 직접 편집하지 않음
+- 같은 이름(stata)이 `~/.claude.json`(CLI 등록)과 `claude_desktop_config.json`에 함께 있을 때 Code 탭 처리 방식 [미확인] → 두 항목 모두 같은 실행파일을 가리키게 기록
 
 ### 17.4 개발 중 사고 기록
 - 설치 도우미 테스트(`yes=True`, 실제 기록)가 개발 환경(클라우드 컨테이너)의 실제 Desktop Commander 설정에 차단 항목을 추가함 [1차 확인]
@@ -590,6 +594,8 @@ spss-agent configure --clients claude-code --dry-run
 ### 17.6 참고자료
 1. 0xc4b4l. (2026, February 16). *[BUG] Windows MSIX: "Edit Config" opens wrong claude_desktop_config.json — MCP servers silently fail to load* (Issue #26073) [GitHub issue]. anthropics/claude-code. https://github.com/anthropics/claude-code/issues/26073
 2. wonderwhy-er. (2026). *DesktopCommanderMCP* [Software, src/config.ts·src/command-manager.ts·README]. GitHub. https://github.com/wonderwhy-er/DesktopCommanderMCP
+3. Anthropic. (n.d.). [Claude Code 데스크톱 안내, 문서 제목 미확인 — Shared configuration 절]. Claude Code Docs. https://code.claude.com/docs/en/desktop (하위 조사 열람)
+4. Anthropic. (n.d.). [Claude Code 설치 문제 해결 안내, 문서 제목 미확인 — Verify your PATH 절]. Claude Code Docs. https://code.claude.com/docs/en/troubleshoot-install (하위 조사 열람)
 
 ## 18. 재설치 안정성 (2026-11-02)
 

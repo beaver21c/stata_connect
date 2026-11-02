@@ -74,7 +74,7 @@ def test_full_setup_twice_is_clean(tmp_path, monkeypatch):
     r2 = setup_wizard.run_setup(opts, out=second.append)
     text = "\n".join(second)
     assert not r2.errors, text
-    assert "Claude 앱(Microsoft Store판): 이미 등록됨" in text and "이미 설정됨" in text
+    assert "Claude 앱(Microsoft Store판, 채팅·Code 탭 공통): 이미 등록됨" in text and "이미 설정됨" in text
     assert sorted(os.listdir(cfg_dir)) + sorted(os.listdir(dc.parent)) == before  # 재설치로 백업이 늘지 않음
 
 

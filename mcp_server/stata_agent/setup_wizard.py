@@ -57,7 +57,7 @@ def describe_change(c: Change) -> str:
     target = c.target.replace("\\", "/")
     if target.endswith(DESKTOP_CONFIG):
         kind = "Microsoft Store판" if "/Packages/Claude_" in target else "일반 설치"
-        line = f"  Claude 앱({kind}): {_ACTION_WORDS.get(c.action, c.action)}"
+        line = f"  Claude 앱({kind}, 채팅·Code 탭 공통): {_ACTION_WORDS.get(c.action, c.action)}"
         if c.action == "error":
             line += f" — {c.detail}"
         line += f"\n    설정 파일: {c.target}" + (f"\n    이전 설정 백업: {c.backup}" if c.backup else "")
@@ -95,7 +95,7 @@ def protect_desktop_commander(commands: tuple[str, ...], product: str, opts, ask
 FINISH_TEXT = (
     "준비 완료. 남은 일:\n"
     "  1) Claude 앱을 완전히 종료 — 창을 닫은 뒤 화면 오른쪽 아래 알림 영역에 Claude 아이콘이 남아 있으면 그 메뉴에서 종료\n"
-    "  2) Claude 앱을 다시 실행 → 채팅창에 '{product} 연결 점검해줘' 입력\n"
+    "  2) Claude 앱을 다시 실행 → 채팅 또는 Code 탭(Claude Code)에 '{product} 연결 점검해줘' 입력\n"
     "  (Codex·Claude Code를 쓰면 그 앱도 다시 실행)"
 )
 
