@@ -57,6 +57,7 @@ from .importer import ImportReport, build_imported_dofile, decode_text, is_utf8,
 from .sync import CmdlogReader, DataState, FileWatch, diff_states, parse_state, state_code
 from .log_compare import compare_logs
 from .readability import decorate_code, is_report, readability_notes, section_kind, section_title
+from .request_note import compose as compose_request
 from .project import init_project
 from .resources import hook_command
 from .session_log import SessionLog, disclosure_draft
@@ -297,6 +298,12 @@ class StataAgentService:
             return ""
         return ("⚠️ 연구자 조작 감지(마지막 AI 실행 이후)\n" + "\n".join(f"- {n}" for n in notes)
                 + "\n→ 연구자에게 확인하고, 남길 명령은 동의를 받아 do-file 섹션('연구자 수동 작업')으로 추가\n\n")
+
+    @staticmethod
+    def _section_body(old_body: list[str], code: str | None, request: str | None, kind: str) -> str:
+        """섹션 본문 = 연구자 요청 기록(이전 + 새, §21) + 분석·보고용 안내(§20) + 코드."""
+        req_lines, rest = compose_request(old_body, code or "", request, "stata")
+        return "\n".join([*req_lines, decorate_code(rest, kind)])
 
     # ── 그래프(§15) ──
     def _graph_note(self, code: str) -> str:
@@ -567,11 +574,12 @@ class StataAgentService:
             if path.exists() and not overwrite:
                 return ToolResult(f"이미 있는 파일: {filename} → stata_patch_dofile 사용(또는 overwrite=true)", True)
             kinds = [s.get("kind") if s.get("kind") in ("analysis", "report") else "analysis" for s in sections or []]
-            pairs = [(section_title(str(s.get("title", "")), k), decorate_code(str(s.get("code", "")), k))
+            pairs = [(section_title(str(s.get("title", "")), k), self._section_body([], s.get("code"), s.get("request"), k))
                      for s, k in zip(sections or [], kinds)]
             if not pairs:
                 return ToolResult("sections가 비어 있음", True)
             content = new_dofile(filename, pairs, self._version_line(), author or "AI")
+            no_request = [f"S{i:02d}" for i, s in enumerate(sections or [], start=1) if not str(s.get("request") or "").strip()]
             read_notes = [f"S{i:02d} {t}: {n}" for i, ((t, c), k) in enumerate(zip(pairs, kinds), start=1)
                           for n in readability_notes(c, k)]
         except (DoFileError, ServiceError) as e:
@@ -594,13 +602,17 @@ class StataAgentService:
         if read_notes:
             lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
             lines += [f"- {n}" for n in read_notes]
+        if no_request:
+            lines.append(f"요청 원문 미기록: {', '.join(no_request)} → 연구자가 채팅창에 입력한 요청을 request로 그대로 넘길 것"
+                         "(섹션 첫머리에 일자·시각과 함께 주석으로 기록됨)")
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
         lines.append(f"편집기: {shown.message}")
         return ToolResult("\n".join(lines))
 
     def patch_dofile(self, filename: str, action: str, section_id: str | None = None, title: str | None = None,
-                     code: str | None = None, after: str | None = None, kind: str | None = None) -> ToolResult:
+                     code: str | None = None, after: str | None = None, kind: str | None = None,
+                     request: str | None = None) -> ToolResult:
         root = self._require_project()
         try:
             path = self._project_file(filename)
@@ -612,14 +624,15 @@ class StataAgentService:
             kind = kind if kind in ("analysis", "report") else None
             if action == "add":
                 kind = kind or "analysis"
-                sec = doc.add(section_title(title or "추가 섹션", kind), decorate_code(code or "", kind),
+                sec = doc.add(section_title(title or "추가 섹션", kind), self._section_body([], code, request, kind),
                               after=after, section_id=section_id)
             elif action == "replace":
                 if not section_id:
                     return ToolResult("replace에는 section_id 필요", True)
-                old_title = doc.get(section_id).title
+                old = doc.get(section_id)
+                old_title = old.title
                 kind = kind or section_kind(old_title)
-                sec = doc.replace(section_id, decorate_code(code or "", kind),
+                sec = doc.replace(section_id, self._section_body(old.body, code, request, kind),
                                   section_title(title or old_title, kind))
             elif action == "delete":
                 if not section_id:
@@ -645,6 +658,8 @@ class StataAgentService:
             if notes:
                 lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
                 lines += [f"- {n}" for n in notes]
+            if not str(request or "").strip():
+                lines.append("요청 원문 미기록 → 연구자가 채팅창에 입력한 요청을 request로 그대로 넘길 것")
         if action == "delete":
             lines.append("참고: 원칙상 원 결과 섹션은 삭제보다 수정 섹션 추가가 권장됨")
         if guard.findings:

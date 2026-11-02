@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stata-agent"
-version = "0.2.4"
+version = "0.2.5"
 description = "Stata·SPSS 연결 MCP 서버 + 원자료 보호 계층 + 분석 스킬"
 readme = "README.md"
 requires-python = ">=3.10"
