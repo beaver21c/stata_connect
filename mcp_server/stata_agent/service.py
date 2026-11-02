@@ -56,6 +56,7 @@ from .guard.stata_lexer import iter_statements, parse_command, abbrev_match
 from .importer import ImportReport, build_imported_dofile, decode_text, is_utf8, outside_paths
 from .sync import CmdlogReader, DataState, FileWatch, diff_states, parse_state, state_code
 from .log_compare import compare_logs
+from .readability import decorate_code, is_report, readability_notes, section_kind, section_title
 from .project import init_project
 from .resources import hook_command
 from .session_log import SessionLog, disclosure_draft
@@ -565,10 +566,14 @@ class StataAgentService:
             path = self._project_file(filename)
             if path.exists() and not overwrite:
                 return ToolResult(f"이미 있는 파일: {filename} → stata_patch_dofile 사용(또는 overwrite=true)", True)
-            pairs = [(str(s.get("title", "")), str(s.get("code", ""))) for s in sections or []]
+            kinds = [s.get("kind") if s.get("kind") in ("analysis", "report") else "analysis" for s in sections or []]
+            pairs = [(section_title(str(s.get("title", "")), k), decorate_code(str(s.get("code", "")), k))
+                     for s, k in zip(sections or [], kinds)]
             if not pairs:
                 return ToolResult("sections가 비어 있음", True)
             content = new_dofile(filename, pairs, self._version_line(), author or "AI")
+            read_notes = [f"S{i:02d} {t}: {n}" for i, ((t, c), k) in enumerate(zip(pairs, kinds), start=1)
+                          for n in readability_notes(c, k)]
         except (DoFileError, ServiceError) as e:
             return ToolResult(str(e), True)
         bak = backup_file(path, root)
@@ -582,16 +587,20 @@ class StataAgentService:
         shown = self.editor.show(path, self.session_id or "")
         self._record("stata_write_dofile", file=filename, status="ok", backup=str(bak) if bak else None,
                      guard_action=ACTION_LABEL[guard.action])
-        lines = [f"✅ 작성: {filename} (섹션 {len(pairs)}개, 00_master.do 갱신)"]
+        n_report = kinds.count("report")
+        lines = [f"✅ 작성: {filename} (섹션 {len(pairs)}개 = 분석 {len(pairs) - n_report}·보고용 {n_report}, 00_master.do 갱신)"]
         if bak:
             lines.append(f"기존 파일 백업: {bak.name}")
+        if read_notes:
+            lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
+            lines += [f"- {n}" for n in read_notes]
         if guard.findings:
             lines.append("실행 전 참고 — " + guard.summary())
         lines.append(f"편집기: {shown.message}")
         return ToolResult("\n".join(lines))
 
     def patch_dofile(self, filename: str, action: str, section_id: str | None = None, title: str | None = None,
-                     code: str | None = None, after: str | None = None) -> ToolResult:
+                     code: str | None = None, after: str | None = None, kind: str | None = None) -> ToolResult:
         root = self._require_project()
         try:
             path = self._project_file(filename)
@@ -600,12 +609,18 @@ class StataAgentService:
             current = self._read_dofile(path)
             file_notes = self.files.changes(path, current)
             doc = DoFile.parse(current)
+            kind = kind if kind in ("analysis", "report") else None
             if action == "add":
-                sec = doc.add(title or "추가 섹션", code or "", after=after, section_id=section_id)
+                kind = kind or "analysis"
+                sec = doc.add(section_title(title or "추가 섹션", kind), decorate_code(code or "", kind),
+                              after=after, section_id=section_id)
             elif action == "replace":
                 if not section_id:
                     return ToolResult("replace에는 section_id 필요", True)
-                sec = doc.replace(section_id, code or "", title)
+                old_title = doc.get(section_id).title
+                kind = kind or section_kind(old_title)
+                sec = doc.replace(section_id, decorate_code(code or "", kind),
+                                  section_title(title or old_title, kind))
             elif action == "delete":
                 if not section_id:
                     return ToolResult("delete에는 section_id 필요", True)
@@ -625,6 +640,11 @@ class StataAgentService:
         lines = [f"✅ {filename} {sec.id} {({'add': '추가', 'replace': '교체', 'delete': '삭제'})[action]}"
                  f" (백업: {bak.name if bak else '없음'})"]
         lines += [f"⚠️ {n}" for n in file_notes]
+        if action != "delete":
+            notes = readability_notes(sec.code(), section_kind(sec.title))
+            if notes:
+                lines.append("가독성 참고(연구자가 분석을 확인하기 쉽게):")
+                lines += [f"- {n}" for n in notes]
         if action == "delete":
             lines.append("참고: 원칙상 원 결과 섹션은 삭제보다 수정 섹션 추가가 권장됨")
         if guard.findings:
@@ -757,6 +777,9 @@ class StataAgentService:
             acknowledge_risks, file=filename, section=sid)
         if file_notes:
             result.text = "".join(f"⚠️ {n}\n" for n in file_notes) + result.text
+        if is_report(doc.get(sid).title):
+            result.text = ("※ 보고용 계산 섹션(연구자 확인 생략 가능) — 분석 결과의 근거는 분석 섹션의 Stata 출력\n"
+                           + result.text)
         return result
 
     def run_dofile(self, filename: str, acknowledge_risks: bool = False) -> ToolResult:

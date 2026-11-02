@@ -74,7 +74,7 @@ def dispatch(service: StataAgentService, name: str, args: dict) -> ToolResult:
         return service.write_dofile(a["filename"], a.get("sections") or [], a.get("author"), bool(a.get("overwrite")))
     if name == "stata_patch_dofile":
         return service.patch_dofile(a["filename"], a["action"], a.get("section_id"), a.get("title"),
-                                    a.get("code"), a.get("after"))
+                                    a.get("code"), a.get("after"), a.get("kind"))
     if name == "stata_check_changes":
         return service.check_changes()
     if name == "stata_import_dofile":

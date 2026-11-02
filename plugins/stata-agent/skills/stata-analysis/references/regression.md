@@ -22,6 +22,12 @@ predict double cooksd, cooksd
 summarize cooksd                            // 개별 값 대신 요약
 ```
 
+## 단계별(위계적) 회귀
+- 분석 섹션에서 단계마다 `regress`를 `quietly` 없이 실행하고 `estimates store`로 저장
+- R² 변화·F 검정은 `nestreg: regress y (x1) (x2) (x3)`의 출력으로 확인(행렬로 직접 계산하지 않음)
+- 표준화 계수는 `regress …, beta` 출력으로 확인
+- 표 작성(행렬·`etable`)은 `[보고용]` 섹션으로 분리(SKILL.md §6 "분석·보고용 구분")
+
 ## 보고
 - 계수·표준오차(종류 명시)·t·p·신뢰구간, N, R²(조정 R²)
 - 표: `stata_export(mode="etable", estimates=["m1","m1_robust"], filename="table_reg.docx")`
