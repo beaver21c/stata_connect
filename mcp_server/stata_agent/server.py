@@ -19,7 +19,14 @@ from .report import save_report
 from .service import ServiceError, StataAgentService, ToolResult
 from .tool_specs import SERVER_NAME, TOOLS
 
-server = Server(SERVER_NAME, version=__version__)
+# MCP 서버 지침(initialize 응답의 instructions). 클라이언트가 AI에게 전달하는 규칙(§17).
+# Claude Code는 시스템 지시에 넣음 [1차 확인: Claude Code 세션의 "MCP Server Instructions" 절], Claude 앱 반영 여부 [미확인]
+SERVER_INSTRUCTIONS = (
+    "Stata 분석은 이 서버의 stata_* 도구로만 실행한다. Desktop Commander 같은 셸·파일 도구로 Stata 실행파일을 "
+    "직접 실행하거나 data 폴더·원자료 파일(.dta·.sav 등)을 열지 않는다(원자료 보호 검사와 출력 필터를 거치지 않음). "
+    "연결 점검 요청에는 stata_status·stata_selftest를 사용한다. 관측치 값을 보려 하지 않고 자료 구조는 schema 도구로만 확인한다."
+)
+server = Server(SERVER_NAME, version=__version__, instructions=SERVER_INSTRUCTIONS)
 _service: StataAgentService | None = None
 
 

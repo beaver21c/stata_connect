@@ -5,7 +5,7 @@
 - 분석 스킬 ZIP 생성(Stata·SPSS): Claude 앱 업로드 규격에 맞춰 ZIP 최상위에 스킬 폴더
   (Claude 공식 안내: "Upload a ZIP file containing your skill folder")
 - 같은 내용이면 같은 확인값(SHA-256)이 나오도록 ZIP 항목 순서·시각 고정
-- --binaries: Windows 빌드 산출물(실행파일·.mcpb·사용권 고지)을 downloads/에 넣고 확인값·
+- --binaries: Windows 빌드 산출물(실행파일·사용권 고지)을 downloads/에 넣고 확인값·
   ``latest.json``(Claude Code 설치 명령 /stata-agent:setup이 읽는 배포 정보) 생성.
   없으면(로컬 미리보기) 내려받기 버튼을 '배포 빌드에서 생성'으로 표시
 
@@ -73,7 +73,7 @@ def _zip_values(prefix: str, skill_dir: Path, version: str, downloads: Path) -> 
 
 
 def _binary_values(prefix: str, name: str, binaries: Path | None, downloads: Path) -> tuple[dict, str, dict | None]:
-    """실행파일·.mcpb 한 개의 자리표시자 값, SHA256SUMS 줄, latest.json 항목."""
+    """실행파일 한 개의 자리표시자 값, SHA256SUMS 줄, latest.json 항목."""
     src = binaries / name if binaries else None
     if src is None or not src.is_file():
         button = f'<a class="btn" aria-disabled="true" role="link" tabindex="-1">{PENDING}</a>'
@@ -94,12 +94,8 @@ def build(out: Path, binaries: Path | None = None) -> dict:
     stata_vals, stata_sum = _zip_values("", SKILL_DIR, version, downloads)
     spss_vals, spss_sum = _zip_values("SPSS_", SPSS_SKILL_DIR, version, downloads)
     exe_vals, exe_sum, exe_entry = _binary_values("EXE", f"stata-agent-{version}.exe", binaries, downloads)
-    mcpb_vals, mcpb_sum, mcpb_entry = _binary_values("MCPB", f"stata-agent-{version}.mcpb", binaries, downloads)
     s_exe_vals, s_exe_sum, s_exe_entry = _binary_values("SPSS_EXE", f"spss-agent-{version}.exe", binaries, downloads)
-    s_mcpb_vals, s_mcpb_sum, s_mcpb_entry = _binary_values("SPSS_MCPB", f"spss-agent-{version}.mcpb", binaries,
-                                                           downloads)
-    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum + exe_sum + mcpb_sum + s_exe_sum + s_mcpb_sum,
-                                              encoding="utf-8")
+    (downloads / "SHA256SUMS.txt").write_text(stata_sum + spss_sum + exe_sum + s_exe_sum, encoding="utf-8")
     notices = binaries / "THIRD_PARTY_NOTICES.txt" if binaries else None
     if notices is not None and notices.is_file():
         shutil.copy2(notices, downloads / "THIRD_PARTY_NOTICES.txt")
@@ -107,11 +103,11 @@ def build(out: Path, binaries: Path | None = None) -> dict:
         (downloads / "THIRD_PARTY_NOTICES.txt").write_text(f"{PENDING}(실행파일에 포함된 외부 구성요소 사용권 고지)\n",
                                                            encoding="utf-8")
     if exe_entry:
-        # 최상위 exe·mcpb = Stata(기존 /stata-agent:setup 호환), spss 항목 = SPSS판(/spss-agent:setup)
-        latest = {"version": version, "exe": exe_entry, "mcpb": mcpb_entry,
+        # 최상위 exe = Stata(기존 /stata-agent:setup 호환), spss 항목 = SPSS판(/spss-agent:setup)
+        latest = {"version": version, "exe": exe_entry,
                   "skill_zip": f"{SITE_URL}downloads/{stata_vals['SKILL_ZIP']}"}
         if s_exe_entry:
-            latest["spss"] = {"exe": s_exe_entry, "mcpb": s_mcpb_entry,
+            latest["spss"] = {"exe": s_exe_entry,
                               "skill_zip": f"{SITE_URL}downloads/{spss_vals['SPSS_SKILL_ZIP']}"}
         (downloads / "latest.json").write_text(json.dumps(latest, ensure_ascii=False, indent=2) + "\n",
                                                encoding="utf-8")
@@ -121,9 +117,7 @@ def build(out: Path, binaries: Path | None = None) -> dict:
         **stata_vals,
         **spss_vals,
         **exe_vals,
-        **mcpb_vals,
         **s_exe_vals,
-        **s_mcpb_vals,
         "BUILD_DATE": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "REPO_URL": REPO_URL,
     }
@@ -144,7 +138,7 @@ def build(out: Path, binaries: Path | None = None) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="설명서 사이트 빌드")
     parser.add_argument("--out", default=str(ROOT / "_site"))
-    parser.add_argument("--binaries", help="Windows 빌드 산출물 폴더(실행파일·.mcpb·사용권 고지)")
+    parser.add_argument("--binaries", help="Windows 빌드 산출물 폴더(실행파일·사용권 고지)")
     args = parser.parse_args()
     values = build(Path(args.out), Path(args.binaries) if args.binaries else None)
     print(f"빌드 완료: {args.out} (v{values['VERSION']}, {values['SKILL_ZIP']} {values['SKILL_SIZE']}, "

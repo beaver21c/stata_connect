@@ -85,8 +85,28 @@ def test_install_skill(tmp_path):
     (src / "SKILL.md").write_text("---\nname: stata-analysis\ndescription: x\n---\n", encoding="utf-8")
     dest_root = tmp_path / "skills"
     assert install_skill(src, dest_root).action == "created"
-    assert install_skill(src, dest_root).action == "updated"
-    assert (dest_root / "stata-analysis" / "SKILL.md").is_file()
+    assert install_skill(src, dest_root).action == "unchanged"  # 재설치: 같은 내용이면 그대로(백업도 안 만듦)
+    (src / "SKILL.md").write_text("---\nname: stata-analysis\ndescription: y\n---\n", encoding="utf-8")
+    c = install_skill(src, dest_root)
+    assert c.action == "updated" and "skills-backups" in c.backup
+    assert (dest_root / "stata-analysis" / "SKILL.md").read_text(encoding="utf-8").endswith("y\n---\n")
+    # 스킬 폴더 안에는 스킬 하나만(백업 사본이 중복 스킬로 잡히지 않게)
+    assert [d.name for d in dest_root.iterdir()] == ["stata-analysis"]
+
+
+def test_install_skill_moves_legacy_backups_out(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "SKILL.md").write_text("x", encoding="utf-8")
+    dest_root = tmp_path / "skills"
+    (dest_root / "stata-analysis").mkdir(parents=True)
+    (dest_root / "stata-analysis" / "SKILL.md").write_text("x", encoding="utf-8")
+    legacy = dest_root / "stata-analysis.bak-20261031_120000"  # 예전 판이 스킬 폴더 안에 남긴 백업
+    legacy.mkdir()
+    (legacy / "SKILL.md").write_text("old", encoding="utf-8")
+    c = install_skill(src, dest_root)
+    assert c.action == "updated" and not legacy.exists()
+    assert (tmp_path / "skills-backups" / legacy.name / "SKILL.md").is_file()
 
 
 @pytest.mark.parametrize("dry", [True])
@@ -100,7 +120,7 @@ def test_claude_code_command_order(monkeypatch):
     """-e는 가변 인자 → 서버 이름 뒤에 와야 함(claude mcp add --help 예시 기준)."""
     from stata_agent import client_config
 
-    monkeypatch.setattr(client_config.shutil, "which", lambda name: "/usr/bin/claude")
+    monkeypatch.setattr(client_config, "find_claude_cli", lambda: "/usr/bin/claude")
     ch = client_config.register_claude_code(SERVER, dry_run=True)
     parts = ch.detail.split()
     assert parts[:8] == ["claude", "mcp", "add", "--transport", "stdio", "--scope", "user", "stata"]

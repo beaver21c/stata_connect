@@ -71,20 +71,20 @@
   <table class="cmp">
     <thead><tr><th></th><th>A. 클릭 설치<br><span class="meta">Claude 앱 채팅에서 분석</span></th><th>B. Claude Code에게 맡기기<br><span class="meta">Claude 앱 Code 탭에서 분석</span></th></tr></thead>
     <tbody>
-      <tr><th>내가 하는 일</th><td data-label="A. 클릭 설치">파일 1~2개 더블클릭 + 앱 메뉴에서 플러그인 추가</td><td data-label="B. Claude Code">플러그인 추가 후 <code>/stata-agent:setup</code> 입력, 이후 승인만</td></tr>
+      <tr><th>내가 하는 일</th><td data-label="A. 클릭 설치">설치 도우미 1개 더블클릭 + 앱 메뉴에서 플러그인 추가</td><td data-label="B. Claude Code">플러그인 추가 후 <code>/stata-agent:setup</code> 입력, 이후 승인만</td></tr>
       <tr><th>설치 중 문제 해결</th><td data-label="A. 클릭 설치">설명서 질문 항목을 보고 직접 조치</td><td data-label="B. Claude Code">Claude가 오류 출력을 읽고 원인·다음 조치를 설명</td></tr>
       <tr><th>분석하는 화면</th><td data-label="A. 클릭 설치">일반 채팅(대화 위주)</td><td data-label="B. Claude Code">폴더 단위 작업 화면(do-file·결과 파일을 함께 봄)</td></tr>
-      <tr><th>원자료 보호</th><td data-label="A. 클릭 설치">채팅 앱은 PC 명령을 직접 실행할 수 없어 Stata 도구의 차단·필터만 거침 → <b>더 엄격</b></td><td data-label="B. Claude Code">Claude Code는 PC 명령을 실행할 수 있음 → 폴더 권한 규칙·실행 전 검사로 막지만 우회 가능성이 남음. 승인 창의 명령을 읽고 허용할 것</td></tr>
+      <tr><th>원자료 보호</th><td data-label="A. 클릭 설치">Claude 앱에 PC 명령 도구(Desktop Commander 등)가 꺼져 있으면 Stata 도구의 차단·필터만 거침. 켜져 있으면 Claude가 Stata를 직접 실행하거나 자료 파일을 열 수 있음 → 설치 도우미가 Stata 직접 실행을 막아 두지만 파일 읽기는 못 막으므로 <b>분석 대화에서는 그 도구를 끌 것</b></td><td data-label="B. Claude Code">Claude Code는 PC 명령을 실행할 수 있음 → 폴더 권한 규칙·실행 전 검사로 막지만 우회 가능성이 남음. 승인 창의 명령을 읽고 허용할 것</td></tr>
       <tr><th>필요한 요금제</th><td data-label="A. 클릭 설치">Claude Pro 이상(권장)</td><td data-label="B. Claude Code">Claude Pro 이상(필수)</td></tr>
       <tr><th>현재 상태</th><td data-label="A. 클릭 설치"><span class="chip trial">시험판</span></td><td data-label="B. Claude Code"><span class="chip trial">시험판</span></td></tr>
     </tbody>
   </table>
   </div>
   <div class="pick">
-    <div><b>이럴 때 A</b>처음 쓰는 경우, 행정자료·민감자료를 다루는 경우, 대화로 결과 해석을 주로 받는 경우</div>
+    <div><b>이럴 때 A</b>처음 쓰는 경우, 대화로 결과 해석을 주로 받는 경우. 민감자료는 PC 명령 도구를 끈 상태에서 사용</div>
     <div><b>이럴 때 B</b>설치를 AI에게 맡기고 싶은 경우, do-file·결과 파일을 폴더 단위로 관리하며 길게 작업하는 경우</div>
   </div>
-  <p class="note">두 방법은 함께 써도 됨(같은 실행파일 사용). 원자료 보호 비교는 공식 문서 확인 사항(Claude Code의 파일 읽기 차단 규칙은 스크립트가 직접 파일을 여는 경우까지는 막지 못함)에 근거한 판단임.</p>
+  <p class="note">두 방법은 함께 써도 됨(같은 실행파일 사용). 원자료 보호 비교 근거: Claude Code의 파일 읽기 차단 규칙은 스크립트가 직접 파일을 여는 경우까지는 막지 못함(공식 문서), Claude 앱도 Desktop Commander가 켜져 있으면 PC 명령을 실행함(2026-11-02 실제 PC 시험에서 확인).</p>
 </section>
 
 <section id="download">
@@ -93,22 +93,10 @@
   <div class="dl">
     <article>
       <div class="head">
-        <div><h3>Claude 데스크톱 확장</h3><div class="file">{{MCPB_FILE}}</div></div>
-        <span class="chip trial">시험판</span>
-      </div>
-      <p>Claude 앱(채팅)에 Stata 연결 도구를 넣는 파일. 더블클릭하면 Claude 앱의 설치 화면이 열림. 방법 A용.</p>
-      {{MCPB_BUTTON}}
-      <details>
-        <summary>파일 확인값(SHA-256)</summary>
-        <p class="meta"><code>{{MCPB_SHA256}}</code></p>
-      </details>
-    </article>
-    <article>
-      <div class="head">
         <div><h3>설치 도우미</h3><div class="file">{{EXE_FILE}}</div></div>
         <span class="chip trial">시험판</span>
       </div>
-      <p>더블클릭하면 질문에 답하며 진행: Stata 확인, Stata 화면 연동 등록(관리자 승인 1회, 선택), Codex·Claude Code 연결. Codex 사용자와 방법 A의 화면 연동용.</p>
+      <p>더블클릭하면 질문에 답하며 진행: Stata 확인, Stata 화면 연동 등록(관리자 승인 1회, 선택), Claude 앱·Claude Code·Codex 연결(설치 도우미가 각 앱 설정에 직접 등록). 방법 A와 Codex용.</p>
       {{EXE_BUTTON}}
       <details>
         <summary>파일 확인값(SHA-256)</summary>
@@ -155,11 +143,10 @@
         <li><b class="t">분석 스킬 추가(플러그인)</b>
           <div class="path"><span>Customize</span><i>›</i><span>Plugins</span><i>›</i><span>Add</span><i>›</i><span>Add marketplace</span></div>
           <p>주소 칸에 <code class="cmd">beaver21c/stata_connect</code> 입력 → 목록의 <b>stata-agent</b> 추가.</p></li>
-        <li><b class="t">Stata 연결 확장 설치</b>
-          <p>다운로드의 <b>{{MCPB_FILE}}</b>을 받아 더블클릭 → Claude 앱 설치 화면에서 설치. Stata를 자동으로 못 찾는 경우에만 설정 칸에 Stata 실행파일 위치를 지정.</p>
-          <p class="note">더블클릭으로 열리지 않으면: Settings › Extensions › Advanced settings › Install Extension…에서 파일 선택(MCPB 공식 안내).</p></li>
-        <li><b class="t">(선택) Stata 화면 연동</b>
-          <p>분석 과정을 Stata 창에서 직접 보려면 <b>{{EXE_FILE}}</b>을 더블클릭 → 질문에 Enter → 관리자 승인 창에서 “예”. 하지 않아도 화면 없는 실행(배치)으로 분석 가능.</p></li>
+        <li><b class="t">설치 도우미 실행</b>
+          <p>다운로드의 <b>{{EXE_FILE}}</b>을 받아 더블클릭 → 질문에 답하며 진행: Stata 확인 → (선택) Stata 화면 연동(관리자 승인 창에서 “예”, 하지 않아도 화면 없는 실행으로 분석 가능) → Claude 앱 연결(설치 도우미가 Claude 앱 설정에 Stata 도구를 직접 등록).</p></li>
+        <li><b class="t">Claude 앱 완전히 종료 후 다시 실행</b>
+          <p>창만 닫으면 작업 표시줄 알림 영역에 남아 있을 수 있음 → 알림 영역 아이콘에서 종료한 뒤 다시 실행해야 연결이 반영됨.</p></li>
         <li><b class="t">새 채팅에 “Stata 연결 점검해줘” 입력</b>
           <p>점검표가 모두 통과로 나오면 준비 끝 → <a href="#first">첫 분석</a>으로.</p></li>
       </ol>
@@ -263,16 +250,20 @@
 <section id="faq">
   <h2>자주 묻는 질문</h2>
   <details>
+    <summary>설치가 실패했거나 잘 안 되면?</summary>
+    <p>설명서에서 설치 도우미를 다시 받아 그대로 다시 실행하면 됨. 이미 맞게 된 설정은 그대로 두고, 빠진 단계만 채움(바꾸는 설정은 먼저 백업). Claude 앱이 켜져 있어 이전 버전 파일을 쓰는 중이어도 교체되며, Claude 앱을 완전히 종료한 뒤 다시 실행하면 새 버전으로 바뀜. 화면에 “실패”가 남으면 그 줄의 안내를 따름.</p>
+  </details>
+  <details>
+    <summary>Claude 앱에 Desktop Commander가 켜져 있어요</summary>
+    <p>Desktop Commander는 Claude가 PC에서 명령을 실행하고 파일을 읽게 해 주는 도구임. 켜져 있으면 Claude가 Stata 도구를 거치지 않고 Stata를 직접 실행하거나 <code>data</code> 폴더의 자료 파일을 열 수 있어 원자료 보호가 무력화됨. 설치 도우미는 Desktop Commander가 Stata 실행파일을 실행하지 못하도록 차단 목록에 추가함(이전 설정은 백업). 다만 이 차단은 실행파일 이름으로만 막는 사고 방지 장치라 우회될 수 있고, 파일 읽기는 막지 못함 → <b>Stata 분석 대화에서는 Desktop Commander를 끈 상태로 사용</b>할 것.</p>
+  </details>
+  <details>
     <summary>“시험판”은 무슨 뜻인가요?</summary>
     <p>설치 파일은 저장소의 자동 점검(Windows에서 빌드 후 Stata 없이 연결·도구 목록·차단 규칙 시험)을 통과했지만, 실제 Stata(17·18·19)와 Claude·Codex 앱에서의 시험은 아직 진행 전이라는 뜻. 시험 결과는 소스 저장소의 docs/IMPLEMENTATION_STATUS.md에 기록됨.</p>
   </details>
   <details>
     <summary>설치할 때 “Windows의 PC 보호” 파란 창이 뜨면?</summary>
     <p>시험판은 코드 서명 인증서가 없어 이 창이 뜰 수 있음. 이 페이지에서 받은 파일인지(필요하면 확인값 대조) 확인한 뒤 “추가 정보 → 실행”을 누름. 기관 PC에서는 보안 프로그램이 막을 수 있으므로 전산 담당자에게 예외 등록을 요청.</p>
-  </details>
-  <details>
-    <summary>Claude 앱이 확장 설치 때 경고를 띄워요</summary>
-    <p>시험판 확장(.mcpb)은 서명 전이라 경고가 표시될 수 있음(표시 문구는 실기 확인 전). 이 페이지에서 받은 파일인지 확인한 뒤 설치.</p>
   </details>
   <details>
     <summary>방법 B에서 Claude가 실행하려는 명령을 어떻게 판단하나요?</summary>
@@ -304,7 +295,7 @@
   </details>
   <details>
     <summary>설치 후 채팅에서 Stata 도구가 보이지 않아요</summary>
-    <p>Claude·Codex 앱을 작업 표시줄에서 완전히 종료한 뒤 다시 실행. 설정 변경은 앱을 다시 시작해야 반영됨.</p>
+    <p>① Claude 앱을 완전히 종료(창을 닫은 뒤 화면 오른쪽 아래 알림 영역에 Claude 아이콘이 남아 있으면 그 메뉴에서 종료)하고 다시 실행. ② 그래도 없으면 설치 도우미를 다시 실행해 [5/6] 단계에 “Claude 앱(…): 등록 완료”가 나오는지 확인. Microsoft Store에서 설치한 Claude 앱은 설정 파일 위치가 달라 설치 도우미가 자동으로 그 위치에 기록함. “Claude 앱: 생략 — 찾지 못함”이 나오면 Claude 앱을 한 번 실행한 뒤 설치 도우미를 다시 실행.</p>
   </details>
   <details>
     <summary>“차단됨”이라는 메시지가 나왔어요</summary>

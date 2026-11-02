@@ -5,7 +5,9 @@
   사용자 범위 설정은 ``~/.claude.json``에 저장되나 내부 키 경로는 문서 미기재 → 직접 편집하지 않고 CLI 사용.
   스킬: ``~/.claude/skills/<name>/SKILL.md``. 권한: ``~/.claude/settings.json``의 permissions.allow/ask.
 - Claude Desktop: ``claude_desktop_config.json``의 ``mcpServers``(형식은 공식 문서 예시 확인).
-  Windows 경로 ``%APPDATA%\\Claude\\``는 공식 문서 미확인 → 폴더가 있을 때만 기록.
+  Windows 위치 두 곳(§17): 일반 설치 ``%APPDATA%\\Claude\\``(폴더가 있을 때만), Microsoft Store판(MSIX)
+  ``%LOCALAPPDATA%\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\`` — 스토어판은 앱이 이 가상화 위치를 읽고
+  '설정 편집' 버튼은 일반 위치를 연다는 보고 [2차 확인: anthropics/claude-code#26073, 미해결]. 감지된 곳 모두에 기록.
 - Codex: ``~/.codex/config.toml``(CODEX_HOME 우선) ``[mcp_servers.<name>]``, 도구별
   ``[mcp_servers.<name>.tools.<tool>] approval_mode``(openai/codex 소스 확인). 스킬: ``~/.agents/skills/``.
 """
@@ -63,9 +65,14 @@ def _stamp() -> str:
 
 
 def backup(path: Path) -> str | None:
+    """원본 사본. 같은 초에 두 번 고쳐도 첫 사본(진짜 원본)이 덮이지 않게 번호를 붙임."""
     if not path.exists():
         return None
     dest = path.with_name(f"{path.name}.bak-{_stamp()}")
+    n = 1
+    while dest.exists():
+        n += 1
+        dest = path.with_name(f"{path.name}.bak-{_stamp()}-{n}")
     if path.is_dir():
         shutil.copytree(path, dest)
     else:
@@ -75,11 +82,27 @@ def backup(path: Path) -> str | None:
 
 # ── JSON(Claude Desktop·Claude Code settings) ────────────────────
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """같은 폴더 임시 파일에 쓴 뒤 교체(도중에 끊겨도 원래 파일이 깨지지 않게). UTF-8, BOM 없음."""
+    import tempfile
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
 def merge_desktop_config(config_path: Path, server: ServerCommand, name: str = SERVER_NAME,
                          dry_run: bool = False) -> Change:
     data: dict = {}
     if config_path.is_file():
-        text = config_path.read_text(encoding="utf-8").strip()
+        # 메모장 등이 붙이는 BOM 허용(읽기), 쓰기는 BOM 없이
+        text = config_path.read_text(encoding="utf-8-sig").strip()
         if text:
             try:
                 data = json.loads(text)
@@ -96,8 +119,7 @@ def merge_desktop_config(config_path: Path, server: ServerCommand, name: str = S
         return Change(str(config_path), "planned", f"mcpServers.{name} 기록 예정")
     servers[name] = entry
     bak = backup(config_path)
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _atomic_write_text(config_path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     return Change(str(config_path), action, f"mcpServers.{name} 기록", bak)
 
 
@@ -234,16 +256,45 @@ def merge_codex_config(config_path: Path, server: ServerCommand, name: str = SER
 
 # ── 스킬 복사 ────────────────────────────────────────────────────
 
+def _tree_digest(root: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    for f in sorted(p for p in root.rglob("*") if p.is_file()):
+        h.update(f.relative_to(root).as_posix().encode("utf-8"))
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
 def install_skill(src: Path, dest_root: Path, dry_run: bool = False, skill_name: str = SKILL_NAME) -> Change:
+    """스킬 복사. 재설치 대응(§18): 내용이 같으면 그대로 두고, 바꿀 때 백업은 스킬 폴더 밖
+    (``<스킬 폴더>-backups``)에 둠 — 스킬 폴더 안 백업 사본도 SKILL.md가 있어 같은 이름의 스킬로 중복 인식될 수 있음
+    [논리적 추론]. 예전 판이 스킬 폴더 안에 남긴 백업(``<이름>.bak-*``)도 밖으로 옮김."""
     dest = dest_root / skill_name
     if not (src / "SKILL.md").is_file():
         return Change(str(dest), "error", f"원본 스킬 없음: {src}")
+    backups = dest_root.parent / f"{dest_root.name}-backups"
+    stale = sorted(dest_root.glob(f"{skill_name}.bak-*")) if dest_root.is_dir() else []
+    same = dest.is_dir() and _tree_digest(dest) == _tree_digest(src)
+    if same and not stale:
+        return Change(str(dest), "unchanged", "스킬 최신")
     if dry_run:
-        return Change(str(dest), "planned", "스킬 복사 예정")
+        return Change(str(dest), "planned", "스킬 복사 예정" if not same else "스킬 폴더 안 옛 백업 정리 예정")
+    if stale:
+        backups.mkdir(parents=True, exist_ok=True)
+        for old in stale:
+            shutil.move(str(old), str(backups / old.name))
+    if same:
+        return Change(str(dest), "updated", f"스킬 폴더 안 옛 백업 {len(stale)}개를 {backups}로 옮김")
     bak = None
     if dest.exists():
-        bak = backup(dest)
-        shutil.rmtree(dest)
+        backups.mkdir(parents=True, exist_ok=True)
+        bak = str(backups / f"{skill_name}.bak-{_stamp()}")
+        n = 1
+        while Path(bak).exists():
+            n += 1
+            bak = str(backups / f"{skill_name}.bak-{_stamp()}-{n}")
+        shutil.move(str(dest), bak)
     shutil.copytree(src, dest)
     return Change(str(dest), "updated" if bak else "created", "스킬 복사", bak)
 
@@ -254,17 +305,64 @@ def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
 
 
+DESKTOP_CONFIG = "claude_desktop_config.json"
+
+
+def claude_desktop_config_paths() -> list[tuple[str, Path]]:
+    """(설치 형태, 설정 파일) 목록 — Claude 앱이 있다고 판단되는 곳만. 형태: store(Microsoft Store판) | standard."""
+    found: list[tuple[str, Path]] = []
+    if sys.platform.startswith("win"):
+        local = os.environ.get("LOCALAPPDATA")
+        if local and Path(local, "Packages").is_dir():
+            for pkg in sorted(Path(local, "Packages").glob("Claude_*")):
+                if pkg.is_dir():
+                    found.append(("store", pkg / "LocalCache" / "Roaming" / "Claude" / DESKTOP_CONFIG))
+        appdata = os.environ.get("APPDATA")
+        if appdata and Path(appdata, "Claude").is_dir():
+            found.append(("standard", Path(appdata) / "Claude" / DESKTOP_CONFIG))
+    elif sys.platform == "darwin":
+        mac = Path.home() / "Library" / "Application Support" / "Claude"
+        if mac.is_dir():
+            found.append(("standard", mac / DESKTOP_CONFIG))
+    return found
+
+
 def claude_desktop_config_path() -> Path | None:
+    """대표 위치 하나(감지 실패 시 일반 위치). 기록은 claude_desktop_config_paths()를 모두 사용."""
+    paths = claude_desktop_config_paths()
+    if paths:
+        return paths[0][1]
     if sys.platform.startswith("win"):
         appdata = os.environ.get("APPDATA")
-        return Path(appdata) / "Claude" / "claude_desktop_config.json" if appdata else None
+        return Path(appdata) / "Claude" / DESKTOP_CONFIG if appdata else None
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        return Path.home() / "Library" / "Application Support" / "Claude" / DESKTOP_CONFIG
+    return None
+
+
+def find_claude_cli() -> str | None:
+    """claude 명령 위치. PATH에 없어도 알려진 설치 위치를 찾음(§17: 설치 도우미 창의 PATH가 사용자 터미널과 다를 수 있음).
+    위치: 기본 설치 프로그램 ``~/.local/bin``, npm 전역 ``%APPDATA%\\npm`` [논리적 추론: 설치 방식별 일반 위치]"""
+    found = shutil.which("claude")
+    if found:
+        return found
+    home = Path.home()
+    if sys.platform.startswith("win"):
+        cands = [home / ".local" / "bin" / "claude.exe"]
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            cands.append(Path(appdata) / "npm" / "claude.cmd")
+    else:
+        cands = [home / ".local" / "bin" / "claude", home / ".claude" / "local" / "claude",
+                 Path("/opt/homebrew/bin/claude"), Path("/usr/local/bin/claude")]
+    for c in cands:
+        if c.is_file():
+            return str(c)
     return None
 
 
 def register_claude_code(server: ServerCommand, name: str = SERVER_NAME, dry_run: bool = False) -> Change:
-    exe = shutil.which("claude")
+    exe = find_claude_cli()
     # -e는 가변 인자 → 이름 뒤에 두어야 이름을 삼키지 않음(CLI 도움말 예시: add my-server -e K=v -- cmd)
     cmd = ["claude", "mcp", "add", "--transport", "stdio", "--scope", "user", name]
     for k, v in server.env.items():
@@ -293,12 +391,12 @@ def configure_all(server: ServerCommand, skill_src: Path, clients: list[str],
         if install_skills:
             changes.append(install_skill(skill_src, Path.home() / ".claude" / "skills", dry_run, profile.skill_name))
     if "claude-desktop" in clients:
-        path = claude_desktop_config_path()
-        if path is None:
-            changes.append(Change("Claude Desktop", "skipped", "이 운영체제의 설정 경로 미정"))
-        elif not path.parent.is_dir() and not force_desktop:
-            changes.append(Change(str(path), "skipped", "Claude Desktop 설정 폴더 없음(미설치 또는 경로 상이) → --force-desktop으로 강제"))
-        else:
+        targets = [p for _, p in claude_desktop_config_paths()]
+        if not targets and force_desktop and claude_desktop_config_path() is not None:
+            targets = [claude_desktop_config_path()]  # type: ignore[list-item]
+        if not targets:
+            changes.append(Change("Claude 앱", "skipped", "Claude 앱을 찾지 못함(설치 후 한 번 실행한 뒤 다시 시도)"))
+        for path in targets:
             changes.append(merge_desktop_config(path, server, name=name, dry_run=dry_run))
     if "codex" in clients:
         changes.append(merge_codex_config(codex_home() / "config.toml", server, name=name, dry_run=dry_run,

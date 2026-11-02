@@ -1,4 +1,4 @@
-"""설치·배포 경로 검사: 실행 전 검사(hook)·설치 도우미·프로젝트 .mcp.json·.mcpb manifest·플러그인·사이트 배포 정보."""
+"""설치·배포 경로 검사: 실행 전 검사(hook)·설치 도우미·프로젝트 .mcp.json·빌드 제품 구성·플러그인·사이트 배포 정보."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ from stata_agent.client_config import ServerCommand, merge_project_mcp
 from stata_agent.config import Settings
 from stata_agent.discovery import AboutInfo, ComRegistration, DiscoveryReport, StataInstall
 from stata_agent.project import claude_settings, init_project, rendered_templates
-from stata_agent.tool_specs import TOOLS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -234,20 +233,20 @@ def test_plugin_setup_command_flags_exist():
     assert "downloads/latest.json" in text and "--no-skill" in text
 
 
-# ── .mcpb manifest ───────────────────────────────────────────────
+# ── 빌드 제품 구성(.mcpb 폐기, IMPLEMENTATION_STATUS §11.7) ─────────
 
-def test_mcpb_manifest_matches_tools():
+def test_build_products_and_no_mcpb():
     build = _load(ROOT / "packaging" / "build.py", "pkg_build")
-    m = build.manifest()
-    assert m["manifest_version"] == "0.3" and m["version"] == __version__
-    assert [t["name"] for t in m["tools"]] == [t.name for t in TOOLS]
-    assert m["server"]["type"] == "binary" and m["server"]["entry_point"] == "server/stata-agent.exe"
-    win = m["server"]["mcp_config"]["platform_overrides"]["win32"]
-    assert win["command"].endswith("server/stata-agent.exe") and win["args"] == ["serve"]
-    for key, value in win["env"].items():  # 사용자 설정 키가 정의돼 있고 서버가 읽는 변수임
-        assert key.startswith("STATA_AGENT_")
-        assert value.removeprefix("${user_config.").removesuffix("}") in m["user_config"]
-    assert m["compatibility"]["platforms"] == ["win32"]
+    assert set(build.PRODUCTS) == {"stata", "spss"}
+    for prod in build.PRODUCTS.values():
+        assert prod.entry.is_file() and (prod.skill_dir / "SKILL.md").is_file()
+    assert not hasattr(build, "manifest") and not hasattr(build, "pack_mcpb")
+    # 배포 경로(빌드·점검·CI·설명서)에 .mcpb가 남지 않음
+    for rel in ("packaging/smoke_test.py", "site/build.py", "site/index.html", "site/spss.html",
+                ".github/workflows/pages.yml"):
+        assert "mcpb" not in (ROOT / rel).read_text(encoding="utf-8").lower(), rel
+    wf = (ROOT / ".github" / "workflows" / "package-windows.yml").read_text(encoding="utf-8")
+    assert "npx" not in wf and "--mcpb" not in wf and "dist/*.mcpb" not in wf
 
 
 # ── 플러그인 마켓플레이스 ────────────────────────────────────────
@@ -275,7 +274,6 @@ def test_site_build_with_binaries(tmp_path):
     bins = tmp_path / "bins"
     bins.mkdir()
     (bins / f"stata-agent-{__version__}.exe").write_bytes(b"MZ fake exe")
-    (bins / f"stata-agent-{__version__}.mcpb").write_bytes(b"PK fake mcpb")
     (bins / "THIRD_PARTY_NOTICES.txt").write_text("notices", encoding="utf-8")
     values = build.build(tmp_path / "_site", bins)
     dl = tmp_path / "_site" / "downloads"
@@ -284,7 +282,7 @@ def test_site_build_with_binaries(tmp_path):
     assert latest["exe"]["url"] == f"{build.SITE_URL}downloads/stata-agent-{__version__}.exe"
     assert latest["exe"]["sha256"] == values["EXE_SHA256"]
     sums = (dl / "SHA256SUMS.txt").read_text(encoding="utf-8")
-    assert values["EXE_SHA256"] in sums and values["MCPB_SHA256"] in sums
+    assert values["EXE_SHA256"] in sums and "mcpb" not in sums and "mcpb" not in latest
     html = (tmp_path / "_site" / "index.html").read_text(encoding="utf-8")
     assert f'href="downloads/stata-agent-{__version__}.exe"' in html
     assert (dl / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8") == "notices"
@@ -319,21 +317,6 @@ def test_hook_blocks_direct_spss(command):
 @pytest.mark.parametrize("command", ["cat output/stats.json", "pip install statsmodels", "git diff --stat"])
 def test_hook_spss_patterns_no_false_positive(command):
     assert hookguard.check_command(command) is None
-
-
-def test_spss_mcpb_manifest():
-    from spss_agent.tool_specs import TOOLS as SPSS_TOOLS
-
-    build = _load(ROOT / "packaging" / "build.py", "pkg_build_spss")
-    m = build.manifest(build.SPSS)
-    assert m["name"] == "spss-agent" and m["server"]["entry_point"] == "server/spss-agent.exe"
-    assert [t["name"] for t in m["tools"]] == [t.name for t in SPSS_TOOLS]
-    win = m["server"]["mcp_config"]["platform_overrides"]["win32"]
-    assert set(win["env"]) == {"SPSS_AGENT_HOME", "SPSS_AGENT_PYTHON"}
-    for value in win["env"].values():
-        assert value.removeprefix("${user_config.").removesuffix("}") in m["user_config"]
-    assert m["user_config"]["spss_home"]["type"] == "directory"
-    assert set(build.PRODUCTS) == {"stata", "spss"}
 
 
 def test_spss_setup_project_scope(monkeypatch, tmp_path):
@@ -389,10 +372,9 @@ def test_site_latest_json_has_spss(tmp_path):
     bins.mkdir()
     for prod in ("stata", "spss"):
         (bins / f"{prod}-agent-{__version__}.exe").write_bytes(b"MZ " + prod.encode())
-        (bins / f"{prod}-agent-{__version__}.mcpb").write_bytes(b"PK " + prod.encode())
     values = build.build(tmp_path / "_site", bins)
     latest = json.loads((tmp_path / "_site" / "downloads" / "latest.json").read_text(encoding="utf-8"))
     assert latest["spss"]["exe"]["sha256"] == values["SPSS_EXE_SHA256"]
-    assert latest["spss"]["mcpb"]["file"] == f"spss-agent-{__version__}.mcpb"
+    assert "mcpb" not in latest["spss"]
     html = (tmp_path / "_site" / "spss.html").read_text(encoding="utf-8")
     assert f'href="downloads/spss-agent-{__version__}.exe"' in html and "{{" not in html

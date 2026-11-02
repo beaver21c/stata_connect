@@ -7,17 +7,17 @@
 - 설계서: [`docs/design/stata_agent_design.html`](docs/design/stata_agent_design.html)
 - 구현 현황·검증 지위·실기 검증 체크리스트: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
 
-## 현재 상태 (v0.1.0, 개발 단계)
+## 현재 상태 (v0.2.0, 개발 단계)
 
 | 구분 | 상태 |
 |---|---|
 | MCP 서버(도구 20종), 원자료 보호(guard·출력 필터), do-file 섹션 편집, 버전 탐지, 재현 대조, 자가 점검·보고서, 클라이언트 설정 병합, 분석 스킬 | 구현 + 자동 테스트(Stata 없이 가짜 백엔드) |
 | COM GUI 백엔드(stata-gui-mcp 1.1.0 래퍼), 배치 백엔드, PowerShell 설치 보조 | 코드 작성, **Windows·Stata 실기 미검증** |
 | 사용자 설명서 사이트(GitHub Pages, Stata·SPSS 두 페이지): 설치 방법 비교(클릭 설치·Claude Code·Codex) + 다운로드 | 구현 |
-| **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버)·Claude 데스크톱 확장 `.mcpb`·플러그인 마켓플레이스(`/stata-agent:setup`·`/spss-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11·§13) |
+| **시험판 배포**: Windows 단일 실행파일(설치 도우미 겸 MCP 서버, Claude 앱·Claude Code·Codex 설정 직접 등록)·플러그인 마켓플레이스(`/stata-agent:setup`·`/spss-agent:setup`) | 구현 + CI Windows 빌드·점검, **실기 미검증** (IMPLEMENTATION_STATUS §11·§13) |
 | Stata 17 호환 | 코드·스킬 점검 + 17 미만 경고, 실기 미검증 (§12) |
 | **SPSS 어댑터**(화면 없는 SPSS 엔진, 도구 14종, 문법 guard, 자가 점검, 스킬) | 구현 + 자동 테스트(가짜 `spss` 모듈로 엔진 통신까지), **실제 SPSS 미검증** (IMPLEMENTATION_STATUS §10) |
-| SPSS 22 호환·배포(실행파일·`.mcpb`·`/spss-agent:setup`) | 엔진 Python 2.7·3.4 겸용, CI에서 2.7·3.4 실행 시험, **실기 미검증** (§13) |
+| SPSS 22 호환·배포(실행파일·`/spss-agent:setup`) | 엔진 Python 2.7·3.4 겸용, CI에서 2.7·3.4 실행 시험, **실기 미검증** (§13) |
 | 기존 do-file·.sps 가져오기, 연구자 조작 감지(창에서 바꾼 변수·리코드·직접 수정) | 구현 + 자동 테스트, **실기 미검증** (IMPLEMENTATION_STATUS §14) |
 | 그래프 보기(`stata_view_graph`: 그림을 AI에 전달, 관측치별 점·값 글자 그림은 연구자 동의 후) | 구현 + 자동 테스트, Claude Code 전달은 공식 문서 확인, **실기 미검증** (§15) |
 | pystata 보조 백엔드(`STATA_AGENT_BACKEND=pystata`, 화면 없음, 지정할 때만) | 구현 + 자동 테스트(가짜 pystata로 자식 프로세스 통신), **실기 미검증** (§16) |
@@ -48,7 +48,7 @@ stata_connect/
 ├── .claude-plugin/              플러그인 마켓플레이스(marketplace.json)
 ├── plugins/stata-agent/         플러그인: skills/stata-analysis(스킬) + commands/setup.md(Claude Code 설치 명령)
 ├── plugins/spss-agent/          플러그인: skills/spss-analysis + commands/setup.md
-├── packaging/                   단일 실행파일·.mcpb 빌드(build.py)·점검(smoke_test.py)
+├── packaging/                   단일 실행파일 빌드(build.py)·점검(smoke_test.py)
 ├── installer/                   doctor.ps1·register_com.ps1·configure_clients.py
 ├── site/                        사용자 설명서 사이트(index.html·spss.html·style.css·build.py)
 ├── docs/                        설계서·구현 현황
@@ -66,11 +66,11 @@ stata-agent configure --clients claude-code,codex --dry-run
 stata-agent-mcp                        # MCP 서버(stdio)
 stata-agent setup --dry-run            # 설치 도우미 점검 실행
 
-# 배포 파일(Windows): 단일 exe + .mcpb
+# 배포 파일(Windows): 단일 exe
 python -m pip install pyinstaller==6.22.3
 python packaging/build.py                    # stata·spss 두 제품
-python packaging/smoke_test.py dist/stata-agent-0.1.0.exe --product stata
-python packaging/smoke_test.py dist/spss-agent-0.1.0.exe --product spss
+python packaging/smoke_test.py dist/stata-agent-0.2.0.exe --product stata
+python packaging/smoke_test.py dist/spss-agent-0.2.0.exe --product spss
 
 # SPSS
 spss-agent doctor                      # SPSS 설치·내장 Python 탐지
