@@ -33,6 +33,9 @@ from stata_agent.setup_wizard import (
     describe_change,
     install_self,
     protect_desktop_commander,
+    report_connection,
+    save_transcript,
+    tee,
 )
 
 from . import __version__
@@ -74,6 +77,8 @@ def _pinned_env(opts: SpssSetupOptions) -> dict[str, str]:
 
 
 def run_setup(opts: SpssSetupOptions, ask: Ask = input, out: Out = print) -> SpssSetupResult:
+    transcript: list[str] = []
+    out = tee(out, transcript)
     import os
 
     errors: list[str] = []
@@ -159,6 +164,9 @@ def run_setup(opts: SpssSetupOptions, ask: Ask = input, out: Out = print) -> Sps
                 errors.append(f"{c.target}: {c.detail}")
         changes.extend(result)
 
+    if "claude-desktop" in clients:
+        report_connection(SERVER_NAME, "SPSS", SPSS.install_dir(), out)
+
     # 5
     out("[5/5] 원자료 보호(다른 AI 도구)")
     errors += protect_desktop_commander(SPSS_COMMANDS, "SPSS", opts, ask, out)  # type: ignore[arg-type]
@@ -168,6 +176,7 @@ def run_setup(opts: SpssSetupOptions, ask: Ask = input, out: Out = print) -> Sps
         out("일부 단계 실패: " + " / ".join(errors))
     else:
         out(FINISH_TEXT.format(product="SPSS"))
+    save_transcript(SPSS.install_dir(), transcript, out, opts.dry_run)
     if opts.pause and not opts.yes:
         try:
             ask("Enter를 누르면 창이 닫힘")

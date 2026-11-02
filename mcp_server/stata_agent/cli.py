@@ -35,7 +35,8 @@ def cmd_doctor(args) -> int:
         print(json.dumps({"version": __version__, **rep.public_dict(),
                           "version_declaration": version_declaration(rep.selected),
                           "com_layer": _com_layer_status(),
-                          "pystata": _pystata_status(rep.selected.exe if rep.selected else None)},
+                          "pystata": _pystata_status(rep.selected.exe if rep.selected else None),
+                          "connection": _connection_lines()},
                          ensure_ascii=False, indent=2))
         return 0 if rep.selected else 1
     # 등록자는 사람이 보는 콘솔 화면에만 표시(출력이 다른 프로그램·AI로 넘어가면 생략)
@@ -64,7 +65,25 @@ def cmd_doctor(args) -> int:
     print(f"선택: {rep.selected.exe if rep.selected else '없음'} / do-file 선언: {version_declaration(rep.selected)}")
     py = _pystata_status(rep.selected.exe if rep.selected else None)
     print(f"pystata(보조, STATA_AGENT_BACKEND=pystata일 때만): {'사용 가능' if py['available'] else '사용 불가'} — {py['reason']}")
+    print("Claude 앱 연결 진단:")
+    for line in _connection_lines():
+        print("  " + line)
     return 0 if rep.selected else 1
+
+
+def _connection_lines() -> list[str]:
+    """§19: 등록 위치·앱 시작 기록·최근 오류(쉬운 말)."""
+    from .client_config import claude_desktop_config_paths
+    from .connection_log import connection_report
+    from .resources import STATA
+
+    paths = claude_desktop_config_paths()
+    if not paths:
+        return ["Claude 앱을 찾지 못함(설치 후 한 번 실행했는지 확인)"]
+    lines = [f"설정 위치({'Microsoft Store판' if k == 'store' else '일반 설치'}): {p}"
+             + (" — Stata 등록됨" if p.is_file() and '"stata"' in p.read_text(encoding="utf-8-sig", errors="replace")
+                else " — Stata 등록 없음") for k, p in paths]
+    return lines + connection_report("stata", "Stata", STATA.install_dir(), [p for _, p in paths])
 
 
 def _pystata_status(exe: str | None) -> dict:
