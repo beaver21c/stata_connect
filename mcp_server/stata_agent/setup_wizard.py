@@ -95,7 +95,8 @@ def protect_desktop_commander(commands: tuple[str, ...], product: str, opts, ask
 FINISH_TEXT = (
     "준비 완료. 남은 일:\n"
     "  1) Claude 앱을 완전히 종료 — 창을 닫은 뒤 화면 오른쪽 아래 알림 영역에 Claude 아이콘이 남아 있으면 그 메뉴에서 종료\n"
-    "  2) Claude 앱을 다시 실행 → 채팅 또는 Code 탭(Claude Code)에 '{product} 연결 점검해줘' 입력\n"
+    "  2) Claude 앱을 다시 실행 → 새 채팅(Code 탭은 새 세션)을 열고 '{product} 연결 점검해줘' 입력\n"
+    "     ※ 설치 전에 열어 둔 대화에는 새 도구가 나타나지 않음 → 반드시 새 대화에서 시험\n"
     "  (Codex·Claude Code를 쓰면 그 앱도 다시 실행)"
 )
 
