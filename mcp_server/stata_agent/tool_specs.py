@@ -38,6 +38,10 @@ _SECTIONS = {
         "properties": {
             "title": {"type": "string", "description": "섹션 제목(예: 표본 정의)"},
             "code": {"type": "string", "description": "Stata 코드(섹션 표지·_nmlog 로그 명령 제외)"},
+            "kind": {"type": "string", "enum": ["analysis", "report"],
+                     "description": "analysis(기본)=연구자가 확인할 분석: 추정 명령은 quietly 없이 실행해 Stata 결과표가 "
+                                    "로그에 남게 함 / report=표·그림용 보조 계산(행렬·스칼라·반복, 새 추정 없이 "
+                                    "estimates restore 사용): 표지에 [보고용]이 붙고 연구자 확인 생략 가능으로 표시"},
         },
         "required": ["title", "code"],
     },
@@ -105,6 +109,9 @@ TOOLS: tuple[ToolSpec, ...] = (
             "title": {"type": "string"},
             "code": {"type": "string"},
             "after": {"type": "string", "description": "add 위치: 이 섹션 뒤(생략 시 맨 끝)"},
+            "kind": {"type": "string", "enum": ["analysis", "report"],
+                     "description": "analysis=분석(연구자 확인 대상) / report=보고용 계산(확인 생략 가능). "
+                                    "add 기본 analysis, replace는 생략 시 기존 구분 유지"},
         },
         ("filename", "action"),
     ),

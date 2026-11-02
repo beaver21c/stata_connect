@@ -43,6 +43,7 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
    - **연구자가 쓰던 do-file로 이어 작업**: 그 파일을 프로젝트 폴더에 두게 한 뒤 `stata_import_dofile(preview=true)`로 바뀔 내용(인코딩 변환·섹션 나눔·주석 처리할 줄)을 먼저 보여 주고 동의를 받아 `stata_import_dofile` 실행 → `stata_run_dofile`로 전체를 한 번 실행해 자료 상태 복원 → 새 분석은 `stata_patch_dofile(action="add")`로 이어 붙임. 주석 처리된 `list`·`browse` 줄은 연구자가 Stata 창에서 직접 실행하도록 안내.
 3. **자료 구조**: `stata_schema`만 사용(행 열람 금지).
 4. **do-file 작성**: `stata_write_dofile`로 섹션 단위 작성(파일명 `NN_영문.do`, 예: `04_regress.do`). 추정결과는 `estimates store m1`처럼 이름을 붙여 저장.
+   - **분석과 보고용 계산을 섹션으로 나눔**(아래 §6 "분석·보고용 구분"): 연구자가 요청한 분석은 `kind="analysis"` 섹션에서 `quietly` 없이 실행해 Stata 결과표가 그대로 보이게 하고, 표 작성용 행렬·반복 계산은 `kind="report"` 섹션(표지에 `[보고용]`)에 따로 둠. 도구가 돌려주는 "가독성 참고"는 고친 뒤 진행.
 5. **승인·실행**: 실행할 섹션과 이유를 알리고 `stata_run_section`.
 6. **검증**: 로그를 기법별 점검표(references/)로 확인 → 위배 시 원인·대안 제시.
 7. **수정·재실행**: `stata_patch_dofile(action="add")`로 수정 섹션 추가(원 결과 섹션 삭제 금지) → 비교.
@@ -71,6 +72,27 @@ description: Stata를 MCP 도구(stata 서버)로 제어해 연구자의 통계�
 - `00_master.do`는 do-file 작성 시 자동 갱신.
 - 경로는 프로젝트 폴더 기준 상대경로(`output/tables/...`). `cd` 사용 지양.
 - 원자료(`data/`)에 저장하지 않음. 가공 자료는 `output/` 아래에 저장.
+
+### 분석·보고용 구분 (연구자가 분석만 확인하고 나머지는 건너뛰게)
+- **분석 섹션**(`kind="analysis"`, 기본): 연구자가 요청한 분석 명령을 그대로, `quietly` 없이 실행 → 로그에 Stata 원래 결과표가 남아 연구자가 이것만 확인하면 됨. 필요한 통계는 가능하면 Stata 기본 출력으로 얻음: 표준화 계수 `regress …, beta`, 단계별(위계적) 회귀의 R² 변화·F 검정 `nestreg:`, 공선성 `estat vif`
+- **보고용 섹션**(`kind="report"`): 표·그림을 만들기 위한 행렬·스칼라·반복 계산. 새 추정을 하지 않고 `estimates restore`로 저장된 결과만 씀. 가능하면 행렬 대신 `etable`·`collect`(Stata 17+) 사용
+- 도구가 섹션 첫 줄에 "▶ 분석 — 연구자 확인 대상" / "▷ 보고용 계산 — 확인 생략 가능"을 넣고, 보고용 섹션 표지에 `[보고용]`을 붙임
+- 예: "price를 weight → length → turn 순으로 단계별 회귀"
+```stata
+*== [S02] 단계별 회귀 ==*
+* ▶ 분석 — 연구자 확인 대상: 아래 명령의 Stata 출력이 결과의 근거
+regress price weight
+estimates store r1
+regress price weight length
+estimates store r2
+regress price weight length turn, beta          // 표준화 계수(beta)도 함께 표시
+estimates store r3
+nestreg: regress price (weight) (length) (turn) // 단계별 R² 변화·F 검정
+
+*== [S03] [보고용] 단계별 회귀 표 ==*
+* ▷ 보고용 계산 — 확인 생략 가능: 위 분석 결과를 표·그림으로 옮기는 계산(새 추정 없음)
+etable, estimates(r1 r2 r3) mstat(N) mstat(r2) mstat(r2_a) export("output/tables/stepwise_reg.docx", replace)
+```
 
 ## 7. 기법별 점검표 (references/)
 기술통계 `descriptive.md` · t검정 `ttest.md` · 분산분석 `anova.md` · 상관 `correlation.md` · 다중회귀 `regression.md` · 경로분석·SEM `sem.md` · 패널 `panel.md` · 비선형 `nonlinear.md` · 보고 양식 `reporting.md`
