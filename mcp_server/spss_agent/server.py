@@ -9,11 +9,13 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool, ToolAnnotations
 
+from stata_agent.connection_log import record as record_connection
 from stata_agent.report import save_report
 from stata_agent.selftest import results_table
 from stata_agent.service import ServiceError, ToolResult
 
 from . import __version__
+from .resources import SPSS as _APP
 from .selftest import run_selftest
 from .service import SpssAgentService
 from .tool_specs import SERVER_NAME, TOOLS
@@ -80,8 +82,27 @@ def dispatch(service: SpssAgentService, name: str, args: dict) -> ToolResult:
     return ToolResult(f"알 수 없는 도구: {name}", True)
 
 
+_connected_noted = False
+
+
+def _note_connection() -> None:
+    """연결 진단 기록(§19): 처음 도구 목록 요청을 받을 때 클라이언트 이름만 남김."""
+    global _connected_noted
+    if _connected_noted:
+        return
+    _connected_noted = True
+    client = None
+    try:
+        info = server.request_context.session.client_params.clientInfo  # type: ignore[union-attr]
+        client = f"{info.name} {info.version}"
+    except Exception:  # noqa: BLE001
+        pass
+    record_connection(_APP.install_dir(), "list_tools", client=client, version=__version__)
+
+
 @server.list_tools()
 async def _list_tools() -> list[Tool]:
+    _note_connection()
     return list_tool_objects()
 
 
@@ -100,6 +121,7 @@ async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 async def serve() -> None:
+    record_connection(_APP.install_dir(), "start", version=__version__)
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
 

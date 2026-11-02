@@ -37,10 +37,11 @@ from .client_config import (
     find_claude_cli,
     merge_project_mcp,
 )
+from .connection_log import connection_report
 from .dc_guard import DC_NOTICE, STATA_COMMANDS, add_blocked_commands
 from .discovery import IS_WINDOWS, com_registration, discover, version_declaration
 from .project import init_project
-from .resources import hook_command, installed_exe, is_frozen, project_command, self_command, skill_source
+from .resources import STATA, hook_command, installed_exe, is_frozen, project_command, self_command, skill_source
 
 CLIENT_LABELS = {
     "claude-code": "Claude Code(모든 폴더, claude 명령 필요)",
@@ -90,6 +91,36 @@ def protect_desktop_commander(commands: tuple[str, ...], product: str, opts, ask
         + (f" — {c.detail}" if c.detail else "") + (f" (이전 설정 백업: {c.backup})" if c.backup else ""))
     out("  ※ " + DC_NOTICE)
     return [f"Desktop Commander: {c.detail}"] if c.action == "error" else []
+
+
+def tee(out: "Out", buf: list[str]) -> "Out":
+    """화면 출력과 함께 기록(설치 화면을 파일로 남겨 연구자가 기억할 필요 없게, §19)."""
+    def _out(text: str) -> None:
+        buf.append(text)
+        out(text)
+    return _out
+
+
+def report_connection(server_name: str, product: str, install_dir: Path, out: "Out") -> None:
+    """Claude 앱 연결 진단(§19): 이전에 등록한 도구를 앱이 시작했는지·오류가 있었는지."""
+    paths = [p for _, p in claude_desktop_config_paths()]
+    if not paths:
+        return
+    out("  연결 진단(지난번 Claude 앱 실행 기록):")
+    for line in connection_report(server_name, product, install_dir, paths):
+        out("    " + line)
+
+
+def save_transcript(install_dir: Path, buf: list[str], out: "Out", dry_run: bool) -> None:
+    if dry_run:
+        return
+    try:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        path = install_dir / "setup_last.txt"
+        path.write_text("\n".join(buf) + "\n", encoding="utf-8")
+        out(f"(이 화면 내용은 {path}에 저장됨 — 문제가 생기면 이 파일을 전달)")
+    except OSError:
+        pass
 
 
 FINISH_TEXT = (
@@ -250,6 +281,8 @@ def _client_list(opts: SetupOptions) -> list[str]:
 # ── 전체 절차 ────────────────────────────────────────────────────
 
 def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupResult:
+    transcript: list[str] = []
+    out = tee(out, transcript)
     errors: list[str] = []
     changes: list[Change] = []
     out(f"Stata 에이전트 설치 도우미 {__version__}" + (" (점검만, 변경 없음)" if opts.dry_run else ""))
@@ -354,6 +387,9 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
                 errors.append(f"{c.target}: {c.detail}")
         changes.extend(result)
 
+    if "claude-desktop" in clients:
+        report_connection("stata", "Stata", STATA.install_dir(), out)
+
     # 6
     out("[6/6] 원자료 보호(다른 AI 도구)")
     errors += protect_desktop_commander(STATA_COMMANDS, "Stata", opts, ask, out)
@@ -363,6 +399,7 @@ def run_setup(opts: SetupOptions, ask: Ask = input, out: Out = print) -> SetupRe
         out("일부 단계 실패: " + " / ".join(errors))
     else:
         out(FINISH_TEXT.format(product="Stata"))
+    save_transcript(STATA.install_dir(), transcript, out, opts.dry_run)
     if opts.pause and not opts.yes:
         try:
             ask("Enter를 누르면 창이 닫힘")
