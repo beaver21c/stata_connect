@@ -21,6 +21,7 @@ PROJECT_INSTRUCTIONS = """\
 - 사람 승인: 실행·쓰기 도구는 연구자 승인 후 실행. guard가 '승인 필요'로 판정하면 사유를 설명하고 동의를 받은 뒤에만 `acknowledge_risks=true` 사용.
 - 재현성: 모든 분석은 .sps 섹션으로 남기고, 마무리 때 `spss_reproduce`로 새 엔진 재실행 결과를 대조.
 - 투명성: 분석 종료 시 `spss_usage_summary`로 AI 사용 공개문 초안을 제시.
+- 분석·보고용 구분: 연구자가 요청한 분석 절차는 분석 섹션에서 출력이 그대로 보이게 실행하고(OMS VIEWER=NO로 숨기지 않음), 저장된 결과를 가공하는 계산(MATRIX 등)은 `[보고용]` 섹션(kind=report)으로 분리. 연구자는 분석 섹션의 출력만 확인하면 됨.
 
 ## 폴더
 - `00_master.sps`: 전체 재현 진입점(INSERT 목록, 자동 갱신)
