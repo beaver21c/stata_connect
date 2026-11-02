@@ -674,3 +674,14 @@ spss-agent configure --clients claude-code --dry-run
 ### 20.4 실기 검증 체크리스트
 - [ ] "단계별 회귀" 요청 → 분석 섹션에 `regress`가 quietly 없이, 보고용 섹션이 따로 생기는지
 - [ ] `nestreg:`·`regress …, beta` 출력이 Stata 17 로그에 표시되는지, `etable … mstat(r2_a)` 동작
+
+### 20.5 SPSS판 (2026-11-02, 0.2.4)
+- 사용자 요구: "SPSS도 분석·보고용 구분 똑같이 적용"
+- 구현: `spss_agent/readability.py`, `spss_write_syntax`·`spss_patch_syntax`의 `kind`, `spss_run_section` 보고용 표시. 표지·kind 처리는 Stata판 공용 함수 사용, 안내 줄은 SPSS 주석 명령(`*`로 시작해 마침표로 끝)
+- SPSS에 맞춘 판정 [논리적 추론]
+  - Stata `quietly`에 해당: `OMS … /DESTINATION VIEWER=NO` 아래의 분석 절차(OMSEND까지) → "출력 표가 결과에 남지 않음"
+  - 행렬 계산에 해당: `MATRIX … END MATRIX`(분석 섹션에 있으면 분리 권장, `MATRIX DATA`는 제외)
+  - 보고용 섹션의 분석 절차(REGRESSION·LOGISTIC REGRESSION·GLM·T-TEST·CROSSTABS 등, 앞 4글자 이상 약어 포함) → 분석 섹션으로
+  - SPSS에는 `estimates restore`가 없음 → 표 파일은 `spss_export`, 보고용 섹션은 저장된 결과 가공만
+- 지침: SKILL.md 4단계(예: `/METHOD=ENTER` 여러 줄 + `/STATISTICS … CHANGE`, 표준화 계수는 계수표 Beta), `references/regression.md` 단계별 회귀, 프로젝트 지침
+- 지위: 가짜 spss 모듈로 작성·수정·실행·보고용 표시 자동 테스트 [1차 확인]. 실제 SPSS에서 안내 주석 줄(한글·기호 포함)의 처리, `CHANGE` 출력 형식 [미확인: 실기]

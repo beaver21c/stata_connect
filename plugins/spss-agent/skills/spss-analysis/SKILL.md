@@ -37,6 +37,17 @@ description: SPSS Statistics를 MCP 도구(spss 서버, 화면 없는 SPSS 엔�
    - **연구자가 쓰던 .sps로 이어 작업**: 그 파일을 프로젝트 폴더에 두게 한 뒤 `spss_import_syntax(preview=true)`로 바뀔 내용(인코딩 변환·섹션 나눔·주석 처리할 명령)을 먼저 보여 주고 동의를 받아 `spss_import_syntax` 실행 → `spss_run_syntax_file`로 전체를 한 번 실행해 자료 상태 복원 → 새 분석은 `spss_patch_syntax(action="add")`로 이어 붙임. 주석 처리된 `LIST` 등은 연구자가 SPSS에서 직접 실행하도록 안내.
 3. **자료 구조**: `spss_schema`만 사용.
 4. **문법 작성**: `spss_write_syntax`로 섹션 단위 작성(파일명 `NN_영문.sps`). 첫 섹션에 `GET FILE='data/...sav'.`를 두어 파일 단독 재실행이 가능하게 함. 명령은 마침표로 끝냄.
+   - **분석과 보고용 계산을 섹션으로 나눔**(연구자가 분석만 확인하고 나머지는 건너뛰게): 연구자가 요청한 분석 절차는 `kind="analysis"` 섹션에서 출력이 그대로 보이게 실행(`OMS … VIEWER=NO`로 숨기지 않음). 저장된 결과를 다시 가공하는 계산(`MATRIX` 등)은 `kind="report"` 섹션(표지에 `[보고용]`)에 따로 둠. 필요한 통계는 가능하면 SPSS 기본 출력으로: 표준화 계수는 REGRESSION 계수표의 Beta, 단계별(위계적) 회귀의 R² 변화·F 변화는 `/METHOD=ENTER` 여러 줄 + `/STATISTICS … CHANGE`. 표 파일은 `spss_export`로 저장. 도구가 돌려주는 "가독성 참고"는 고친 뒤 진행. 예:
+```spss
+*== [S02] 단계별 회귀 ==.
+* ▶ 분석 — 연구자 확인 대상: 아래 절차의 SPSS 출력이 결과의 근거.
+REGRESSION
+  /STATISTICS COEFF OUTS R ANOVA CHANGE
+  /DEPENDENT y
+  /METHOD=ENTER x1
+  /METHOD=ENTER x2
+  /METHOD=ENTER x3.
+```
 5. **승인·실행**: `spss_run_section` 또는 `spss_run_syntax_file`.
 6. **검증**: 출력을 기법별 점검표(references/)로 확인 → 위배 시 원인·대안 제시.
 7. **수정·재실행**: `spss_patch_syntax(action="add")`로 수정 섹션 추가(원 결과 섹션 유지) → 비교.

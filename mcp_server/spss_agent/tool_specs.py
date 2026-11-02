@@ -22,7 +22,8 @@ _SECTIONS = {
     "description": "섹션 목록(순서대로 S01, S02 …). 각 명령은 마침표로 끝낼 것",
     "items": {
         "type": "object",
-        "properties": {"title": {"type": "string"}, "code": {"type": "string", "description": "SPSS 문법(섹션 표지 제외)"}},
+        "properties": {"title": {"type": "string"}, "code": {"type": "string", "description": "SPSS 문법(섹션 표지 제외)"},
+                       "kind": {"type": "string", "enum": ["analysis", "report"], "description": "analysis(기본)=연구자가 확인할 분석: 절차 출력이 그대로 보이게(OMS VIEWER=NO 금지) / report=저장된 결과를 표·그림으로 가공하는 보조 계산(MATRIX 등, 새 분석 절차 없음): 표지에 [보고용], 확인 생략 가능"}},
         "required": ["title", "code"],
     },
 }
@@ -45,7 +46,10 @@ TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec("spss_patch_syntax", "섹션 단위 추가·교체·삭제(변경 전 .spss-agent/backups에 백업). 원 결과 섹션은 지우지 말고 수정 섹션 추가가 원칙.",
              False, {"filename": _FILENAME, "action": {"type": "string", "enum": ["add", "replace", "delete"]},
                      "section_id": {"type": "string"}, "title": {"type": "string"}, "code": {"type": "string"},
-                     "after": {"type": "string"}}, ("filename", "action")),
+                     "after": {"type": "string"},
+                     "kind": {"type": "string", "enum": ["analysis", "report"],
+                              "description": "analysis=분석(연구자 확인 대상) / report=보고용 계산(확인 생략 가능). "
+                                             "add 기본 analysis, replace는 생략 시 기존 구분 유지"}}, ("filename", "action")),
     ToolSpec("spss_import_syntax",
              "연구자가 쓰던 .sps를 이어 작업용으로 준비(실행하지 않음): 원본 백업 후 UTF-8 변환(코드페이지 cp949 등), "
              "주석 제목(장식·상자형·번호) 기준 섹션 표지 추가, LIST·PRINT 등 행 출력 명령 주석 처리(연구자 직접 실행 목록 반환), "

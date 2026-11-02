@@ -54,13 +54,13 @@ def section_title(title: str, kind: str | None) -> str:
     return f"{REPORT_TAG} {bare}" if kind == "report" else bare
 
 
-def decorate_code(code: str, kind: str) -> str:
-    """섹션 첫 줄에 분석·보고용 안내(이미 있으면 바꿈)."""
+def decorate_code(code: str, kind: str, notes: tuple[str, str] = (ANALYSIS_NOTE, REPORT_NOTE)) -> str:
+    """섹션 첫 줄에 분석·보고용 안내(이미 있으면 바꿈). notes=(분석 안내, 보고용 안내) — SPSS는 마침표로 끝나는 주석."""
     lines = [ln for ln in str(code or "").replace("\r\n", "\n").split("\n")
              if not ln.strip().startswith(_NOTE_PREFIXES)]
     while lines and not lines[0].strip():
         lines.pop(0)
-    note = REPORT_NOTE if kind == "report" else ANALYSIS_NOTE
+    note = notes[1] if kind == "report" else notes[0]
     return "\n".join([note, *lines])
 
 
