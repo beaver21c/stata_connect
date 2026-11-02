@@ -98,7 +98,7 @@ def test_wizard_registers_claude_app_in_plain_words(win, monkeypatch):
                                  out=lines.append)
     text = "\n".join(lines)
     assert not res.errors, text
-    assert "Claude 앱(Microsoft Store판): 등록 완료" in text and ".mcpb" not in text
+    assert "Claude 앱(Microsoft Store판, 채팅·Code 탭 공통): 등록 완료" in text and ".mcpb" not in text
     assert "Stata 연결 점검해줘" in text and "[6/6] 원자료 보호" in text
 
 
