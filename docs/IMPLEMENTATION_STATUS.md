@@ -2,7 +2,7 @@
 
 - 기준 설계서: [`docs/design/stata_agent_design.html`](design/stata_agent_design.html) (2026-10-29 설계안 원문, 수정하지 않음)
 - 이 문서: 설계서의 어느 부분이 어떤 파일로 구현됐는지, 무엇이 검증됐고 무엇이 미검증인지 기록
-- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14, 그래프 보기는 §15, pystata 보조 백엔드는 §16, Claude 앱 직접 등록·Desktop Commander 대응은 §17
+- SPSS 어댑터(설계서 범위 밖 확장)는 §10, 설치·배포 두 방향(패키지·Claude Code)은 §11, Stata 17 호환 점검은 §12, SPSS 배포·22 호환은 §13, 기존 파일 가져오기·연구자 조작 감지는 §14, 그래프 보기는 §15, pystata 보조 백엔드는 §16, Claude 앱 직접 등록·Desktop Commander 대응은 §17, 재설치 안정성은 §18
 - 지위 표기: **[1차 확인]** 원문·실제 실행으로 확인 / **[2차 확인]** 제3자 자료 / **[논리적 추론]** / **[미확인]** 실기 검증 필요
 - 작성 환경 제약: Linux 클라우드 컨테이너, Stata·Windows 없음 → COM·배치·PowerShell은 코드 작성만, 실기 미검증
 
@@ -590,3 +590,29 @@ spss-agent configure --clients claude-code --dry-run
 ### 17.6 참고자료
 1. 0xc4b4l. (2026, February 16). *[BUG] Windows MSIX: "Edit Config" opens wrong claude_desktop_config.json — MCP servers silently fail to load* (Issue #26073) [GitHub issue]. anthropics/claude-code. https://github.com/anthropics/claude-code/issues/26073
 2. wonderwhy-er. (2026). *DesktopCommanderMCP* [Software, src/config.ts·src/command-manager.ts·README]. GitHub. https://github.com/wonderwhy-er/DesktopCommanderMCP
+
+## 18. 재설치 안정성 (2026-11-02)
+
+### 18.1 배경
+- 사용자 요구: "다시 받아서 다시 설치하면 작동할 수 있도록"(배포 후 설치 → 실패 → 재설치가 자주 일어남)
+- 원칙: 같은 설치 도우미를 몇 번 실행해도 결과가 같고(이미 맞는 설정은 그대로), 앞선 실패가 남긴 상태 위에서도 끝까지 진행
+
+### 18.2 재설치 때 걸리던 지점과 대응
+| 지점 | 이전 동작 [1차 확인: 코드] | 대응 |
+|---|---|---|
+| 실행 중인 이전 버전 교체 | Claude 앱·Claude Code가 `stata-agent.exe`를 실행 중이면 덮어쓰기 실패 → "앱 종료 후 다시 실행"으로 멈춤 | 새 파일을 같은 폴더 임시 파일로 복사 → 교체, 교체가 막히면 실행 중인 파일을 `stata-agent.old-<시각>.exe`로 옮긴 뒤 교체(Windows는 실행 중 파일의 이름 바꾸기를 허용 [논리적 추론: Windows 파일 잠금 동작, 실기 미확인]). 옛 사본은 다음 실행 때 정리. 앱을 다시 시작하면 새 버전 사용 |
+| 스킬 재복사 | 매번 스킬 폴더 안에 `stata-analysis.bak-…` 백업 생성 → SKILL.md가 있는 사본이 같은 이름의 스킬로 중복 인식될 수 있음 [논리적 추론] | 내용이 같으면 그대로 둠. 바꿀 때 백업은 스킬 폴더 밖(`~/.claude/skills-backups`, `~/.agents/skills-backups`). 예전 판이 남긴 폴더 안 백업도 밖으로 옮김 |
+| 백업 이름 충돌 | 같은 초에 두 번 고치면 첫 백업(원본)이 덮임 | 번호 추가(§17) |
+| 다시 받은 파일이 옛 파일 | 파일 이름이 버전(0.1.0)으로 고정 → 브라우저·사이트 캐시의 옛 파일을 받을 수 있음 [논리적 추론] | 버전 0.2.0으로 올림(배포 파일 이름 변경). 변경을 배포할 때마다 버전을 올리는 규칙 유지(AGENTS.md) |
+| 설정 파일 | Claude 앱·Claude Code·Codex·Desktop Commander 설정은 병합 방식 | 같은 내용이면 "이미 등록됨", 백업 늘지 않음(테스트 확인). 빈 설정 파일은 새로 쓰고, 깨진 JSON은 손대지 않고 알림 |
+| `claude` 명령 위치 | PATH에 없으면 Claude Code 등록 생략 | 알려진 설치 위치(`~/.local/bin`, `%APPDATA%\npm`)도 찾음 [논리적 추론: 설치 방식별 일반 위치] |
+
+### 18.3 검증·한계
+- [1차 확인] 자동 테스트: 실행 중 파일 교체 흉내(덮어쓰기 거부 → 옆으로 옮겨 교체 → 다음 실행 때 정리), 교체 불가 시 원래 파일 유지·안내, 설치 2회 연속 실행 시 오류 없음·백업 증가 없음, 빈·깨진 설정 파일
+- [미확인: 실기] Windows에서 실행 중인 exe 이름 바꾸기, 백신 프로그램이 임시 파일·교체를 막는 경우
+- 깨진 Claude 앱 설정(JSON 오류)은 다른 설정을 잃지 않도록 자동 복구하지 않음 → 화면에 파일 위치와 함께 알림
+
+### 18.4 실기 검증 체크리스트
+- [ ] Claude 앱(Stata 도구 연결 상태)을 켠 채로 새 설치 도우미 실행 → "설치 완료(… 앱을 다시 시작하면 새 버전으로 바뀜)" → 앱 재시작 후 새 버전 동작
+- [ ] 같은 설치 도우미 2회 연속 실행 → 2회차 모든 항목 "이미 등록됨"·오류 없음
+- [ ] 설치 도중 창을 닫은 뒤 다시 실행 → 끝까지 완료

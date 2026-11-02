@@ -256,16 +256,45 @@ def merge_codex_config(config_path: Path, server: ServerCommand, name: str = SER
 
 # ── 스킬 복사 ────────────────────────────────────────────────────
 
+def _tree_digest(root: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    for f in sorted(p for p in root.rglob("*") if p.is_file()):
+        h.update(f.relative_to(root).as_posix().encode("utf-8"))
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
 def install_skill(src: Path, dest_root: Path, dry_run: bool = False, skill_name: str = SKILL_NAME) -> Change:
+    """스킬 복사. 재설치 대응(§18): 내용이 같으면 그대로 두고, 바꿀 때 백업은 스킬 폴더 밖
+    (``<스킬 폴더>-backups``)에 둠 — 스킬 폴더 안 백업 사본도 SKILL.md가 있어 같은 이름의 스킬로 중복 인식될 수 있음
+    [논리적 추론]. 예전 판이 스킬 폴더 안에 남긴 백업(``<이름>.bak-*``)도 밖으로 옮김."""
     dest = dest_root / skill_name
     if not (src / "SKILL.md").is_file():
         return Change(str(dest), "error", f"원본 스킬 없음: {src}")
+    backups = dest_root.parent / f"{dest_root.name}-backups"
+    stale = sorted(dest_root.glob(f"{skill_name}.bak-*")) if dest_root.is_dir() else []
+    same = dest.is_dir() and _tree_digest(dest) == _tree_digest(src)
+    if same and not stale:
+        return Change(str(dest), "unchanged", "스킬 최신")
     if dry_run:
-        return Change(str(dest), "planned", "스킬 복사 예정")
+        return Change(str(dest), "planned", "스킬 복사 예정" if not same else "스킬 폴더 안 옛 백업 정리 예정")
+    if stale:
+        backups.mkdir(parents=True, exist_ok=True)
+        for old in stale:
+            shutil.move(str(old), str(backups / old.name))
+    if same:
+        return Change(str(dest), "updated", f"스킬 폴더 안 옛 백업 {len(stale)}개를 {backups}로 옮김")
     bak = None
     if dest.exists():
-        bak = backup(dest)
-        shutil.rmtree(dest)
+        backups.mkdir(parents=True, exist_ok=True)
+        bak = str(backups / f"{skill_name}.bak-{_stamp()}")
+        n = 1
+        while Path(bak).exists():
+            n += 1
+            bak = str(backups / f"{skill_name}.bak-{_stamp()}-{n}")
+        shutil.move(str(dest), bak)
     shutil.copytree(src, dest)
     return Change(str(dest), "updated" if bak else "created", "스킬 복사", bak)
 
@@ -311,8 +340,29 @@ def claude_desktop_config_path() -> Path | None:
     return None
 
 
+def find_claude_cli() -> str | None:
+    """claude 명령 위치. PATH에 없어도 알려진 설치 위치를 찾음(§17: 설치 도우미 창의 PATH가 사용자 터미널과 다를 수 있음).
+    위치: 기본 설치 프로그램 ``~/.local/bin``, npm 전역 ``%APPDATA%\\npm`` [논리적 추론: 설치 방식별 일반 위치]"""
+    found = shutil.which("claude")
+    if found:
+        return found
+    home = Path.home()
+    if sys.platform.startswith("win"):
+        cands = [home / ".local" / "bin" / "claude.exe"]
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            cands.append(Path(appdata) / "npm" / "claude.cmd")
+    else:
+        cands = [home / ".local" / "bin" / "claude", home / ".claude" / "local" / "claude",
+                 Path("/opt/homebrew/bin/claude"), Path("/usr/local/bin/claude")]
+    for c in cands:
+        if c.is_file():
+            return str(c)
+    return None
+
+
 def register_claude_code(server: ServerCommand, name: str = SERVER_NAME, dry_run: bool = False) -> Change:
-    exe = shutil.which("claude")
+    exe = find_claude_cli()
     # -e는 가변 인자 → 이름 뒤에 두어야 이름을 삼키지 않음(CLI 도움말 예시: add my-server -e K=v -- cmd)
     cmd = ["claude", "mcp", "add", "--transport", "stdio", "--scope", "user", name]
     for k, v in server.env.items():

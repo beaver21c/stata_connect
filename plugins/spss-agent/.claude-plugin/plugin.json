@@ -1,7 +1,7 @@
 {
   "name": "spss-agent",
   "displayName": "SPSS 에이전트",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SPSS가 계산하고 AI는 문법(.sps) 작성·결과 판독·해석을 맡는 분석 스킬. Claude Code에서는 /spss-agent:setup으로 설치·연결까지 진행",
   "author": {
     "name": "beaver21c",

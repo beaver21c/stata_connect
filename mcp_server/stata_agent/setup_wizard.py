@@ -18,9 +18,11 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -32,6 +34,7 @@ from .client_config import (
     claude_desktop_config_paths,
     codex_home,
     configure_all,
+    find_claude_cli,
     merge_project_mcp,
 )
 from .dc_guard import DC_NOTICE, STATA_COMMANDS, add_blocked_commands
@@ -138,8 +141,22 @@ def _yes(question: str, opts: SetupOptions, ask: Ask, default: bool = True) -> b
 
 # ── 1. 실행파일 고정 위치 ─────────────────────────────────────────
 
+def _cleanup_old_copies(dest: Path) -> None:
+    """이전 재설치 때 옆으로 옮겨 둔 실행파일(사용 중이라 바로 못 지운 것) 정리. 아직 사용 중이면 그대로 둠."""
+    for old in dest.parent.glob(f"{dest.stem}.old-*{dest.suffix}"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
+
 def install_self(dry_run: bool = False, src: Path | None = None, dest: Path | None = None) -> tuple[Path | None, str]:
-    """실행파일 형태면 고정 위치로 복사하고 그 경로 반환. 개발판·pip 설치는 복사하지 않음(None)."""
+    """실행파일 형태면 고정 위치로 복사하고 그 경로 반환. 개발판·pip 설치는 복사하지 않음(None).
+
+    재설치 대응(§18): 이전 버전이 Claude 앱·Claude Code에서 실행 중이면 Windows는 덮어쓰기를 막음 →
+    실행 중인 파일은 이름 바꾸기가 허용되므로 옆으로 옮긴 뒤 새 파일을 둠(옛 파일은 다음 실행 때 정리).
+    복사는 같은 폴더 임시 파일 → 교체 순서라 도중에 끊겨도 설치 파일이 깨지지 않음.
+    """
     if src is None:
         if not is_frozen():
             return None, "개발판(파이썬 실행) → 복사 생략, 현재 명령 사용"
@@ -152,12 +169,28 @@ def install_self(dry_run: bool = False, src: Path | None = None, dest: Path | No
         pass
     if dry_run:
         return dest, f"복사 예정: {src} → {dest}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _cleanup_old_copies(dest)
+    tmp = dest.with_name(f"{dest.stem}.new-{os.getpid()}{dest.suffix}")
     try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
+        shutil.copy2(src, tmp)
+    except OSError as e:
+        tmp.unlink(missing_ok=True)
+        return None, f"복사 실패: {e} (디스크 공간·백신 프로그램 확인)"
+    replaced_running = False
+    try:
+        os.replace(tmp, dest)
     except PermissionError:
-        return None, (f"복사 실패(사용 중): {dest} → Claude·Codex 앱을 완전히 종료한 뒤 다시 실행할 것")
-    return dest, f"복사 완료: {dest}"
+        # 이전 버전 실행 중 → 옆으로 옮기고 교체
+        try:
+            dest.rename(dest.with_name(f"{dest.stem}.old-{int(time.time())}{dest.suffix}"))
+            os.replace(tmp, dest)
+            replaced_running = True
+        except OSError:
+            tmp.unlink(missing_ok=True)
+            return None, (f"교체 실패(사용 중): {dest} → Claude·Codex 앱을 완전히 종료한 뒤 설치 도우미를 다시 실행")
+    note = " (이전 버전이 실행 중이라 앱을 다시 시작하면 새 버전으로 바뀜)" if replaced_running else ""
+    return dest, f"설치 완료: {dest}{note}"
 
 
 # ── 3. COM 등록 ──────────────────────────────────────────────────
@@ -194,7 +227,7 @@ def detect_clients() -> list[str]:
     found: list[str] = []
     if claude_desktop_config_paths():
         found.append("claude-desktop")
-    if shutil.which("claude"):
+    if find_claude_cli():
         found.append("claude-code")
     if shutil.which("codex") or codex_home().is_dir():
         found.append("codex")
